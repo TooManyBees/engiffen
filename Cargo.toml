@@ -1,0 +1,16 @@
+[package]
+name = "engiffen"
+version = "0.1.0"
+authors = ["Jesse Bees <jesse@toomanybees.com>"]
+
+[dependencies]
+image = "*"
+gif = "*"
+
+[lib]
+name = "engiffen"
+path = "src/lib.rs"
+
+[[bin]]
+name = "engiffen_demo"
+path = "src/main.rs"
