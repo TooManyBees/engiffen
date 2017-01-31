@@ -15,9 +15,12 @@ Generates gifs from image files.
 
 * Handle sources with more than 256 colors total
 
-  Naiivest implementation is to rank colors by frequency and use only the 256 most used colors.
+  Naiive implementation is to rank colors based on their frequency in all frames, then adding the
+  256 most frequently used colors to the palette. After palette is filled, for each new color find
+  the closest matching color in the palette and use it instead.
 
-  Slightly less naiive is to rank colors on a frame-by-frame basis first, determining which colors are important. When composing the final palette, add the "important" colors first, then add the rest of the colors ordered by frequency, up to 256.
+  This is what we currently do, and it has serious limitations on true-color gifs, because it does
+  not determine which colors are important and which are insignificant.
 
 ## Anything else?
 
