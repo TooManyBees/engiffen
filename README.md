@@ -20,8 +20,13 @@ Generates gifs from image files.
   the closest matching color in the palette and use it instead.
 
   This is what we currently do, and it has serious limitations on true-color gifs, because it does
-  not determine which colors are important and which are insignificant.
+  not determine which colors are important and which are insignificant. Compare the first source frame
+  with the `engiffen`ned output, and output produced by Photoshop.
+
+  ![source bitmap](tests/ball/ball01.bmp)
+  ![engiffenned gif](tests/ball.gif)
+  ![photoshopped gif](tests/ball_ps.gif)
 
 ## Anything else?
 
-![shrug](test/shrug.gif)
+![shrug](tests/shrug.gif)

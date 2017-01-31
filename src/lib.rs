@@ -52,7 +52,7 @@ fn palettize(imgs: &[DynamicImage]) -> GifDescriptor {
     for img in imgs {
         count_colors(&img, &mut counter);
     }
-    let (palette, reference_palette) = compress_palette(counter);
+    let (palette, compressed) = compress_palette(counter);
     let palettized_imgs: Vec<Vec<u8>> = imgs.iter().map(|img| {
         img.pixels().map(|(_, _, px)| {
             *palette.get(&px.to_rgba()).unwrap()
@@ -60,11 +60,32 @@ fn palettize(imgs: &[DynamicImage]) -> GifDescriptor {
     }).collect();
 
     GifDescriptor {
-        palette: reference_palette,
+        palette: compressed,
         width: width,
         height: height,
         images: palettized_imgs,
     }
+}
+
+fn not_too_close(lab: Lab, sensitivity: f32, palette: &HashMap<Rgba<u8>, u8>, labs: &HashMap<Rgba<u8>, Lab>) -> bool {
+    palette.keys().map(|rgba| labs.get(rgba).unwrap()).all(|v| lab.squared_distance(&v) > sensitivity)
+}
+
+fn find_closest_rgb(px: &Rgba<u8>, palette: &mut HashMap<Rgba<u8>, u8>, labs: &mut HashMap<Rgba<u8>, Lab>) -> Rgba<u8> {
+    let lab_new = Lab::from_rgba(px.data);
+    let mut closest_rgb = None;
+    {
+        let mut closest_distance = std::f32::MAX;
+        for (rgb, lab) in palette.keys().map(|k| (k, labs.get(k).unwrap())) {
+            let dist = lab_new.squared_distance(lab);
+            if dist < closest_distance {
+                closest_distance = dist;
+                closest_rgb = Some(rgb.clone());
+            }
+        }
+    }
+    labs.insert(*px, lab_new);
+    closest_rgb.expect("Couldn't find ANY closest RGB colors?").clone()
 }
 
 fn compress_palette(colors: HashMap<Rgba<u8>, usize>) -> (HashMap<Rgba<u8>, u8>, HashMap<Rgba<u8>, u8>) {
@@ -72,33 +93,29 @@ fn compress_palette(colors: HashMap<Rgba<u8>, usize>) -> (HashMap<Rgba<u8>, u8>,
     ctr.sort_by(|a, b| b.1.cmp(&a.1));
 
     let mut palette = HashMap::with_capacity(256);
-    let mut reference_palette = palette.clone();
+    let mut compressed_palette = palette.clone();
     let mut lab_colors_by_rgb = HashMap::with_capacity(256);
-    for (i, (px, _)) in ctr.into_iter().enumerate() {
-        if reference_palette.len() < 256 {
-            lab_colors_by_rgb.insert(px, Lab::from_rgba(px.data));
+
+    if ctr.len() <= 256 {
+        for (i, (px, _)) in ctr.into_iter().enumerate() {
             palette.insert(px, i as u8);
-            reference_palette.insert(px, i as u8);
-        } else {
-            let lab_new = Lab::from_rgba(px.data);
-            let mut closest_rgb = None;
-            {
-                let mut closest_distance = std::f32::MAX;
-                for (rgb, lab) in reference_palette.keys().map(|k| (k, lab_colors_by_rgb.get(k).unwrap())) {
-                    let dist = lab_new.squared_distance(lab);
-                    if dist < closest_distance {
-                        closest_distance = dist;
-                        closest_rgb = Some(rgb.clone());
-                    }
-                }
+            compressed_palette.insert(px, i as u8);
+        }
+    } else {
+        for (i, (px, _)) in ctr.into_iter().enumerate() {
+            if compressed_palette.len() < 256 && not_too_close(Lab::from_rgba(px.data), 300.0, &palette, &lab_colors_by_rgb) {
+                lab_colors_by_rgb.insert(px, Lab::from_rgba(px.data));
+                palette.insert(px, i as u8);
+                compressed_palette.insert(px, i as u8);
+            } else {
+                let closest_rgb = find_closest_rgb(&px, &mut compressed_palette, &mut lab_colors_by_rgb);
+                let i_new = *(compressed_palette.get(&closest_rgb).expect("Closest RGB color wasn't in the palette to begin with."));
+                palette.insert(px, i_new);
+                // whew!
             }
-            lab_colors_by_rgb.insert(px, lab_new);
-            let i_new = *(reference_palette.get(&closest_rgb.expect("Couldn't find ANY closest RGB colors?")).expect("Closest RGB color wasn't in the palette to begin with."));
-            palette.insert(px, i_new);
-            // whew!
         }
     }
-    (palette, reference_palette)
+    (palette, compressed_palette)
 }
 
 fn count_colors(img: &DynamicImage, counter: &mut HashMap<Rgba<u8>, usize>) {
