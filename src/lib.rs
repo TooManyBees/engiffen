@@ -82,10 +82,3 @@ fn count_colors(img: &DynamicImage, counter: &mut HashMap<Rgba<u8>, usize>) {
         *ctr += 1;
     }
 }
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-    }
-}
