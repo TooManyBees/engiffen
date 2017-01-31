@@ -21,4 +21,4 @@ Generates gifs from image files.
 
 ## Anything else?
 
-![shrug](test/out.gif)
+![shrug](test/shrug.gif)

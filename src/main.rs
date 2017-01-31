@@ -9,6 +9,6 @@ fn main() {
         .map(|path| image::open(&path).unwrap())
         .collect();
 
-    let mut out = File::create("test/out.gif").unwrap();
+    let mut out = File::create("test/shrug.gif").unwrap();
     engiffen::engiffen(&imgs, &mut out);
 }
