@@ -6,7 +6,7 @@ authors = ["Jesse Bees <jesse@toomanybees.com>"]
 [dependencies]
 image = "*"
 gif = "*"
-lab = "0.3"
+color_quant = "1.0.0"
 
 [lib]
 name = "engiffen"
