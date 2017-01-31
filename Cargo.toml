@@ -2,6 +2,20 @@
 name = "engiffen"
 version = "0.1.0"
 authors = ["Jesse Bees <jesse@toomanybees.com>"]
+description = """
+Encodes GIF images from sequences of images, both on disk and from stdin.
+"""
+homepage = "https://github.com/TooManyBees/engiffen"
+repository = "https://github.com/TooManyBees/engiffen"
+readme = "README.md"
+keywords = ["gif", "straem", "image", "cli"]
+categories = ["multimedia", "command-line-utilities"]
+license = "MIT"
+publish = false
+
+exclude = [
+  "tests/*"
+]
 
 [dependencies]
 image = "*"
