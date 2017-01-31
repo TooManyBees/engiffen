@@ -13,5 +13,5 @@ fn test_compress_palette() {
         .collect();
 
     let mut out = File::create("tests/ball.gif").unwrap();
-    engiffen::engiffen(&imgs, &mut out);
+    engiffen::engiffen(&imgs, 10, &mut out);
 }

@@ -11,5 +11,5 @@ fn test_simple_paletted_gif() {
         .collect();
 
     let mut out = File::create("tests/shrug.gif").unwrap();
-    engiffen::engiffen(&imgs, &mut out);
+    engiffen::engiffen(&imgs, 30, &mut out);
 }

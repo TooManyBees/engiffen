@@ -8,8 +8,9 @@ use image::{GenericImage, DynamicImage};
 use gif::{Frame, Encoder, Repeat, SetParameter};
 use color_quant::NeuQuant;
 
-pub fn engiffen<W: Write>(imgs: &[DynamicImage], mut out: &mut W) {
+pub fn engiffen<W: Write>(imgs: &[DynamicImage], fps: usize, mut out: &mut W) {
     let gif_descriptor = palettize(&imgs);
+    let delay = 1000 / fps;
 
     let mut color_map: &mut [u8; 256*3] = &mut [0; 256*3];
     let mut transparency = None;
@@ -27,6 +28,7 @@ pub fn engiffen<W: Write>(imgs: &[DynamicImage], mut out: &mut W) {
     encoder.set(Repeat::Infinite).unwrap();
     for img in gif_descriptor.images {
         let mut frame = Frame::default();
+        frame.delay = delay as u16 / 10;
         frame.width = width;
         frame.height = height;
         frame.buffer = Cow::Borrowed(&*img);
