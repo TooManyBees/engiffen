@@ -21,11 +21,12 @@ exclude = [
 image = "*"
 gif = "*"
 color_quant = "1.0.0"
+getopts = "*"
 
 [lib]
 name = "engiffen"
 path = "src/lib.rs"
 
 [[bin]]
-name = "engiffen_demo"
+name = "engiffen"
 path = "src/main.rs"
