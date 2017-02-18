@@ -32,6 +32,7 @@ enum ArgsError {
     Parse(getopts::Fail),
     // Glob(glob::PatternError),
     Fps(std::num::ParseIntError),
+    ImageRange(String),
 }
 
 impl From<getopts::Fail> for ArgsError {
@@ -52,6 +53,7 @@ impl fmt::Display for ArgsError {
             ArgsError::Parse(ref err) => write!(f, "Options parse error: {}", err),
             // ArgsError::Glob(ref err) => write!(f, "Glob pattern error: {}", err),
             ArgsError::Fps(_) => write!(f, "Unable to parse framerate as an integer"),
+            ArgsError::ImageRange(ref s) => write!(f, "Incomplete range of images: {}", s),
         }
     }
 }
@@ -62,6 +64,7 @@ impl error::Error for ArgsError {
             ArgsError::Parse(ref err) => err.description(),
             // ArgsError::Glob(ref err) => err.description(),
             ArgsError::Fps(ref err) => err.description(),
+            ArgsError::ImageRange(_) => "Incomplete range of images",
         }
     }
 
@@ -70,6 +73,7 @@ impl error::Error for ArgsError {
             ArgsError::Parse(ref err) => Some(err),
             // ArgsError::Glob(ref err) => Some(err),
             ArgsError::Fps(ref err) => Some(err),
+            ArgsError::ImageRange(_) => None,
         }
     }
 }
@@ -81,6 +85,7 @@ fn parse_args() -> Result<Args, ArgsError> {
     let mut opts = Options::new();
     opts.optopt("o", "outfile", "engiffen to this filename", "FILE");
     opts.optopt("f", "framerate", "frames per second", "30");
+    opts.optflag("r", "range", "arguments specify start and end images");
     opts.optflag("h", "help", "display this help");
 
     let matches = try!{opts.parse(&args[1..])};
@@ -95,16 +100,17 @@ fn parse_args() -> Result<Args, ArgsError> {
     } else {
         30
     };
-    // let source = if matches.free.len() > 1 {
-    //     StartEnd(matches.free[0].clone(), matches.free[1].clone())
-    // } else if matches.free.len() == 1 {
-    //     try!{glob::Pattern::new(&matches.free[0])};
-    //     Glob(matches.free[0].clone())
-    // } else {
-    //     StdIn
-    // };
+
     let out_file = matches.opt_str("o").map(|f| f.clone()).unwrap_or("out.gif".to_string());
-    let source = if matches.free.is_empty() {
+    let source = if matches.opt_present("r") {
+        if matches.free.len() >= 2 {
+            StartEnd(matches.free[0].clone(), matches.free[1].clone())
+        } else if matches.free.len() == 1 {
+            return Err(ArgsError::ImageRange("end filename".to_string()))
+        } else {
+            return Err(ArgsError::ImageRange("start and end filenames".to_string()))
+        }
+    } else if matches.free.is_empty() {
         StdIn
     } else {
         List(matches.free)
