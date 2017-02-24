@@ -10,25 +10,25 @@ use color_quant::NeuQuant;
 
 pub fn engiffen<W: Write>(imgs: &[DynamicImage], fps: usize, mut out: &mut W) {
     let gif_descriptor = palettize(&imgs);
-    let delay = 1000 / fps;
+    let delay = (1000 / fps) as u16;
 
-    let mut color_map: &mut [u8; 256*3] = &mut [0; 256*3];
+    let mut color_map: [u8; 256*3] = [0; 256*3];
     let mut transparency = None;
     for (idx, color) in gif_descriptor.palette.chunks(4).enumerate() {
-        color_map[(idx as usize)*3] = color[0];
-        color_map[(idx as usize)*3+1] = color[1];
-        color_map[(idx as usize)*3+2] = color[2];
+        color_map[idx*3] = color[0];
+        color_map[idx*3+1] = color[1];
+        color_map[idx*3+2] = color[2];
         if color[3] == 0 {
             transparency = Some(idx as u8);
         }
     }
     let width = gif_descriptor.width;
     let height = gif_descriptor.height;
-    let mut encoder = Encoder::new(&mut out, width, height, color_map).unwrap();
+    let mut encoder = Encoder::new(&mut out, width, height, &color_map).unwrap();
     encoder.set(Repeat::Infinite).unwrap();
     for img in gif_descriptor.images {
         let mut frame = Frame::default();
-        frame.delay = delay as u16 / 10;
+        frame.delay = delay / 10;
         frame.width = width;
         frame.height = height;
         frame.buffer = Cow::Borrowed(&*img);
