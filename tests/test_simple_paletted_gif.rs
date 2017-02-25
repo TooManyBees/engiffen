@@ -4,6 +4,7 @@ extern crate image;
 use std::fs::{read_dir, File};
 
 #[test]
+#[ignore]
 fn test_simple_paletted_gif() {
     let imgs: Vec<_> = read_dir("tests/shrug").unwrap()
         .map(|e| e.unwrap().path())
