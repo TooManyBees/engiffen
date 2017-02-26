@@ -6,6 +6,7 @@ use std::{env, error, fmt, process};
 use std::str::FromStr;
 use std::fs::{read_dir, File};
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 use getopts::Options;
 
 use SourceImages::*;
@@ -156,9 +157,14 @@ fn main() {
         .map(|path| image::open(&path).unwrap())
         .collect();
 
-    let mut out = File::create(args.out_file).unwrap();
+    let mut out = File::create(&args.out_file).unwrap();
+    let now = Instant::now();
     match engiffen::engiffen(&imgs, args.fps, &mut out) {
         Err(e) => println!("{}", e),
-        _ => {} // whatever
+        _ => {
+            let duration = now.elapsed();
+            let ms = duration.as_secs() * 1000 + duration.subsec_nanos() as u64 / 1000000;
+            println!("Wrote {} in {} ms", &args.out_file, ms);
+        },
     }
 }
