@@ -157,5 +157,8 @@ fn main() {
         .collect();
 
     let mut out = File::create(args.out_file).unwrap();
-    engiffen::engiffen(&imgs, args.fps, &mut out);
+    match engiffen::engiffen(&imgs, args.fps, &mut out) {
+        Err(e) => println!("{}", e),
+        _ => {} // whatever
+    }
 }
