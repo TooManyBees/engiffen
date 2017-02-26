@@ -129,6 +129,7 @@ fn palettize(imgs: &[DynamicImage]) -> Result<GifDescriptor, Error> {
 }
 
 #[cfg(test)]
+#[allow(unused_must_use)]
 mod tests {
     use super::{engiffen, Error};
     use std::fs::{remove_file, read_dir, File};
@@ -155,5 +156,28 @@ mod tests {
         match remove_file(&out_file) {
             _ => {} // I don't care
         }
+    }
+
+    #[test] #[ignore]
+    fn test_compress_palette() {
+        // This takes a while to run when not in --release
+        let imgs: Vec<_> = read_dir("tests/ball").unwrap()
+            .map(|e| e.unwrap().path())
+            .map(|path| image::open(&path).unwrap())
+            .collect();
+
+        let mut out = File::create("tests/ball.gif").unwrap();
+        engiffen(&imgs, 10, &mut out);
+    }
+
+    #[test] #[ignore]
+    fn test_simple_paletted_gif() {
+        let imgs: Vec<_> = read_dir("tests/shrug").unwrap()
+            .map(|e| e.unwrap().path())
+            .map(|path| image::open(&path).unwrap())
+            .collect();
+
+        let mut out = File::create("tests/shrug.gif").unwrap();
+        engiffen(&imgs, 30, &mut out);
     }
 }
