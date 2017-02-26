@@ -3,7 +3,8 @@ name = "engiffen"
 version = "0.1.0"
 authors = ["Jesse Bees <jesse@toomanybees.com>"]
 description = """
-Encodes GIF images from sequences of images, both on disk and from stdin.
+Encodes GIF images from sequences of images. Includes an installable
+command line bin as well as the library.
 """
 homepage = "https://github.com/TooManyBees/engiffen"
 repository = "https://github.com/TooManyBees/engiffen"
