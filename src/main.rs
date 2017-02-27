@@ -2,11 +2,13 @@ extern crate engiffen;
 extern crate image;
 extern crate getopts;
 
+use std::io;
+use std::io::Write;
 use std::{env, error, fmt, process};
 use std::str::FromStr;
 use std::fs::{read_dir, File};
 use std::path::{Path, PathBuf};
-use std::time::Instant;
+use std::time::{Instant, Duration};
 use getopts::Options;
 
 use SourceImages::*;
@@ -136,35 +138,80 @@ fn parse_args() -> Result<Args, ArgsError> {
     })
 }
 
-fn main() {
-    let args = parse_args().map_err(|e| {
-        println!("Aborted! {}", e);
-        process::exit(1);
-    }).unwrap();
-    let source_images: Vec<PathBuf> = match args.source {
-        StartEnd(dir, start_path, end_path) => {
-            read_dir(dir).unwrap()
+#[derive(Debug)]
+enum RuntimeError {
+    Directory(PathBuf),
+    Destination(String),
+    Image(image::ImageError),
+    Engiffen(engiffen::Error),
+}
+
+impl From<image::ImageError> for RuntimeError {
+    fn from(err: image::ImageError) -> RuntimeError {
+        RuntimeError::Image(err)
+    }
+}
+
+impl From<engiffen::Error> for RuntimeError {
+    fn from(err: engiffen::Error) -> RuntimeError {
+        RuntimeError::Engiffen(err)
+    }
+}
+
+impl fmt::Display for RuntimeError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            RuntimeError::Directory(ref dir) => write!(f, "No such directory {:?}", dir),
+            RuntimeError::Destination(ref dst) => write!(f, "Couldn't write to output '{}'", dst),
+            RuntimeError::Image(ref e) => write!(f, "Image load error: {}", e),
+            RuntimeError::Engiffen(ref e) => e.fmt(f,)
+        }
+    }
+}
+
+fn run_engiffen(args: &Args) -> Result<((String, Duration)), RuntimeError> {
+    let source_images = match args.source {
+        StartEnd(ref dir, ref start_path, ref end_path) => {
+            read_dir(dir)
+            .map_err(|_| RuntimeError::Directory(dir.clone()))?
             .map(|e| e.unwrap().path())
             .skip_while(|path| path.file_name().unwrap() < start_path)
             .take_while(|path| path.file_name().unwrap() <= end_path)
             .collect()
         },
-        List(list) => list.into_iter().map(PathBuf::from).collect(),
+        List(ref list) => list.into_iter().map(PathBuf::from).collect(),
         StdIn => vec![],
     };
 
     let imgs: Vec<_> = source_images.iter()
-        .map(|path| image::open(&path).unwrap())
+        .map(|path| image::open(&path) )
+        .filter(|i| i.is_ok()) // arg :(
+        .map(|i| i.unwrap())
         .collect();
 
-    let mut out = File::create(&args.out_file).unwrap();
+    let mut out = File::create(&args.out_file)
+        .map_err(|_| RuntimeError::Destination(args.out_file.to_owned()))?;
+
     let now = Instant::now();
-    match engiffen::engiffen(&imgs, args.fps, &mut out) {
-        Err(e) => println!("{}", e),
-        _ => {
-            let duration = now.elapsed();
+    engiffen::engiffen(&imgs, args.fps, &mut out)?;
+    let duration = now.elapsed();
+    Ok((args.out_file.clone(), duration))
+}
+
+fn main() {
+    let args = parse_args().map_err(|e| {
+        println!("Aborted! {}", e);
+        process::exit(1);
+    }).unwrap();
+
+    #[allow(unused_must_use)]
+    match run_engiffen(&args) {
+        Ok((file, duration)) => {
             let ms = duration.as_secs() * 1000 + duration.subsec_nanos() as u64 / 1000000;
-            println!("Wrote {} in {} ms", &args.out_file, ms);
+            println!("Wrote {} in {} ms", file, ms);
+        },
+        Err(e) => {
+            writeln!(&mut io::stderr(), "{}", e);
         },
     }
 }
