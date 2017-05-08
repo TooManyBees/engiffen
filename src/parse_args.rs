@@ -143,11 +143,16 @@ fn path_and_filename(input: &str) -> Result<(PathBuf, PathBuf), ArgsError> {
 #[cfg(test)]
 #[allow(unused_must_use)]
 mod tests {
-    use super::{parse_args, SourceImages, ArgsError};
+    use super::{parse_args, SourceImages, ArgsError, Args};
     use std::path::PathBuf;
 
     fn make_args(args: &str) -> Vec<String> {
         args.split(" ").map(|s| s.to_owned()).collect()
+    }
+
+    fn assert_err_eq(actual: Result<Args, ArgsError>, expected: ArgsError) {
+        assert!(actual.is_err());
+        assert_eq!(actual.err().unwrap(), expected);
     }
 
     #[test]
@@ -169,12 +174,8 @@ mod tests {
         use std::str::FromStr;
 
         let args = parse_args(&make_args("engiffen -f barry"));
-        assert!(args.is_err());
         let parse_error = usize::from_str("barry").err().unwrap();
-        assert_eq!(
-            args.err().unwrap(),
-            ArgsError::Fps(parse_error)
-        );
+        assert_err_eq(args, ArgsError::Fps(parse_error));
     }
 
     #[test]
@@ -222,31 +223,19 @@ mod tests {
     #[test]
     fn test_file_range_different_directories() {
         let args = parse_args(&make_args("engiffen -r ./thing001.jpg ../thing010.jpg"));
-        assert!(args.is_err());
-        assert_eq!(
-            args.err().unwrap(),
-            ArgsError::ImageRange("start and end files are from different directories".to_string())
-        );
+        assert_err_eq(args, ArgsError::ImageRange("start and end files are from different directories".to_string()));
     }
 
     #[test]
     fn test_file_range_incomplete() {
         let args = parse_args(&make_args("engiffen -r ./thing001.jpg"));
-        assert!(args.is_err());
-        assert_eq!(
-            args.err().unwrap(),
-            ArgsError::ImageRange("missing end filename".to_string())
-        );
+        assert_err_eq(args, ArgsError::ImageRange("missing end filename".to_string()));
     }
 
     #[test]
     fn test_file_range_missing() {
         let args = parse_args(&make_args("engiffen -r"));
-        assert!(args.is_err());
-        assert_eq!(
-            args.err().unwrap(),
-            ArgsError::ImageRange("missing start and end filenames".to_string())
-        );
+        assert_err_eq(args, ArgsError::ImageRange("missing start and end filenames".to_string()));
     }
 
     #[test]
