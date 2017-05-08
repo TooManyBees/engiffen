@@ -82,7 +82,7 @@ fn palettize(imgs: &[DynamicImage]) -> Result<GifDescriptor, Error> {
         return Err(Error::NoImages);
     }
     let (width, height) = {
-        let first = imgs.iter().nth(0).unwrap();
+        let ref first = imgs[0];
         let first_dimensions = (first.width(), first.height());
         for img in imgs.iter() {
             let other_dimensions = (img.width(), img.height());

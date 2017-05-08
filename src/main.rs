@@ -72,14 +72,14 @@ fn run_engiffen(args: &Args) -> Result<((String, Duration)), RuntimeError> {
     Ok((args.out_file.clone(), duration))
 }
 
+#[allow(unused_must_use)]
 fn main() {
     let arg_strings: Vec<String> = env::args().collect();
     let args = parse_args(&arg_strings).map_err(|e| {
-        println!("{}", e);
+        writeln!(&mut io::stderr(), "{}", e);
         process::exit(1);
     }).unwrap();
 
-    #[allow(unused_must_use)]
     match run_engiffen(&args) {
         Ok((file, duration)) => {
             let ms = duration.as_secs() * 1000 + duration.subsec_nanos() as u64 / 1000000;
