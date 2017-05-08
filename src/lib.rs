@@ -20,21 +20,13 @@ use color_quant::NeuQuant;
 
 #[derive(Debug)]
 pub enum Error {
-    Write(io::Error),
     NoImages,
     Mismatch((u32, u32), (u32, u32)),
-}
-
-impl From<io::Error> for Error {
-    fn from(err: io::Error) -> Error {
-        Error::Write(err)
-    }
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Error::Write(_) => write!(f, "Couldn't write to output"),
             Error::NoImages => write!(f, "No frames sent for engiffening"),
             Error::Mismatch(_, _) => write!(f, "Frames don't have the same dimensions"),
         }
@@ -44,16 +36,8 @@ impl fmt::Display for Error {
 impl error::Error for Error {
     fn description(&self) -> &str {
         match *self {
-            Error::Write(ref err) => err.description(),
             Error::NoImages => "No frames sent for engiffening",
             Error::Mismatch(_, _) => "Frames don't have the same dimensions",
-        }
-    }
-
-    fn cause(&self) -> Option<&error::Error> {
-        match *self {
-            Error::Write(ref err) => Some(err),
-            _ => None,
         }
     }
 }
@@ -82,7 +66,7 @@ impl fmt::Debug for Gif {
 }
 
 impl Gif {
-    pub fn write<W: io::Write>(&self, mut out: &mut W) -> Result<(), Error> {
+    pub fn write<W: io::Write>(&self, mut out: &mut W) -> Result<(), io::Error> {
         let mut encoder = Encoder::new(&mut out, self.width, self.height, &self.palette)?;
         encoder.set(Repeat::Infinite)?;
         for img in &self.images {

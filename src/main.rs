@@ -77,7 +77,8 @@ fn run_engiffen(args: &Args) -> Result<((String, Duration)), RuntimeError> {
 
     let now = Instant::now();
     let gif = engiffen::engiffen(&imgs, args.fps)?;
-    gif.write(&mut out)?;
+    gif.write(&mut out)
+        .map_err(|_| RuntimeError::Destination(args.out_file.to_owned()))?;
     let duration = now.elapsed();
     Ok((args.out_file.clone(), duration))
 }
