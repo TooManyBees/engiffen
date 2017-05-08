@@ -182,6 +182,10 @@ mod tests {
         // This takes a while to run when not in --release
         let imgs: Vec<_> = read_dir("tests/ball").unwrap()
             .map(|e| e.unwrap().path())
+            .filter(|path| match path.extension() {
+                Some(ext) if ext == "bmp" => true,
+                _ => false,
+            })
             .map(|path| image::open(&path).unwrap())
             .collect();
 
@@ -197,6 +201,10 @@ mod tests {
     fn test_simple_paletted_gif() {
         let imgs: Vec<_> = read_dir("tests/shrug").unwrap()
             .map(|e| e.unwrap().path())
+            .filter(|path| match path.extension() {
+                Some(ext) if ext == "tga" => true,
+                _ => false,
+            })
             .map(|path| image::open(&path).unwrap())
             .collect();
 
