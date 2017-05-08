@@ -102,7 +102,12 @@ pub fn engiffen(imgs: &[DynamicImage], fps: usize) -> Result<Gif, Error> {
     // let time_push = Instant::now();
     let mut colors: Vec<u8> = Vec::with_capacity(width as usize * height as usize * imgs.len());
     for img in imgs {
-        for (_, _, px) in img.pixels() {
+        for (x, y, px) in img.pixels() {
+            if x % 2 == 0 || y % 2 == 0 {
+                // Only feed 1/4 of each source frame's pixels to the NeuQuant
+                // learning algorithm.
+                continue;
+            }
             if px.data[3] == 0 {
                 colors.push(0);
                 colors.push(0);
