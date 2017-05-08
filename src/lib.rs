@@ -5,9 +5,18 @@ extern crate color_quant;
 use std::io;
 use std::{error, fmt};
 use std::borrow::Cow;
+use std::collections::HashMap;
 use image::{GenericImage, DynamicImage};
 use gif::{Frame, Encoder, Repeat, SetParameter};
 use color_quant::NeuQuant;
+
+// use std::time::{Instant};
+
+// fn ms(duration: Instant) -> u64 {
+//     let duration = duration.elapsed();
+//     duration.as_secs() * 1000 + duration.subsec_nanos() as u64 / 1000000
+// }
+
 
 #[derive(Debug)]
 pub enum Error {
@@ -81,6 +90,7 @@ fn palettize(imgs: &[DynamicImage]) -> Result<GifDescriptor, Error> {
     if imgs.is_empty() {
         return Err(Error::NoImages);
     }
+    // let time_check_dimensions = Instant::now();
     let (width, height) = {
         let ref first = imgs[0];
         let first_dimensions = (first.width(), first.height());
@@ -92,6 +102,8 @@ fn palettize(imgs: &[DynamicImage]) -> Result<GifDescriptor, Error> {
         }
         first_dimensions
     };
+    // println!("Checked image dimensions in {} ms.", ms(time_check_dimensions));
+    // let time_push = Instant::now();
     let mut colors: Vec<u8> = Vec::with_capacity(width as usize * height as usize * imgs.len());
     for img in imgs {
         for (_, _, px) in img.pixels() {
@@ -108,16 +120,24 @@ fn palettize(imgs: &[DynamicImage]) -> Result<GifDescriptor, Error> {
             }
         }
     }
+    // println!("Pushed all frame pixels in {} ms.", ms(time_push));
 
+    // let time_quant = Instant::now();
     let quant = NeuQuant::new(10, 256, &colors);
+    // println!("Computed palette in {} ms.", ms(time_quant));
+    // let time_map = Instant::now();
     let mut transparency = None;
+    let mut cache: HashMap<[u8; 4], u8> = HashMap::new();
     let palettized_imgs: Vec<Vec<u8>> = imgs.iter().map(|img| {
         img.pixels().map(|(_, _, px)| {
-            let idx = quant.index_of(&px.data) as u8;
-            if px.data[3] == 0 { transparency = Some(idx); }
-            idx
+            *cache.entry(px.data).or_insert_with(|| {
+                let idx = quant.index_of(&px.data) as u8;
+                if px.data[3] == 0 { transparency = Some(idx); }
+                idx
+            })
         }).collect()
     }).collect();
+    // println!("Mapped pixels to palette in {} ms.", ms(time_map));
 
     Ok(GifDescriptor {
         palette: quant.color_map_rgb(),
