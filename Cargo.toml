@@ -9,7 +9,7 @@ command line bin as well as the library.
 homepage = "https://github.com/TooManyBees/engiffen"
 repository = "https://github.com/TooManyBees/engiffen"
 readme = "README.md"
-keywords = ["gif", "straem", "image", "cli"]
+keywords = ["gif", "stream", "image", "cli"]
 categories = ["multimedia", "command-line-utilities"]
 license = "MIT"
 publish = false
