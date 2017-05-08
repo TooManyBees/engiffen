@@ -19,10 +19,10 @@ exclude = [
 ]
 
 [dependencies]
-image = "*"
-gif = "*"
+image = "0.13"
+gif = "0.9"
 color_quant = "1.0.0"
-getopts = "*"
+getopts = "0.2.14"
 
 [lib]
 name = "engiffen"
