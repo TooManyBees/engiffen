@@ -58,35 +58,47 @@ impl error::Error for Error {
     }
 }
 
-pub fn engiffen<W: io::Write>(imgs: &[DynamicImage], fps: usize, mut out: &mut W) -> Result<(), Error> {
-    let gif_descriptor = palettize(&imgs)?;
-    let delay = (1000 / fps) as u16;
+#[derive(Eq, PartialEq, Clone, Hash)]
+pub struct Gif {
+    pub palette: Vec<u8>,
+    pub transparency: Option<u8>,
+    pub width: u16,
+    pub height: u16,
+    pub images: Vec<Vec<u8>>,
+    pub delay: u16,
+}
 
-    let width = gif_descriptor.width;
-    let height = gif_descriptor.height;
-    let mut encoder = Encoder::new(&mut out, width, height, &gif_descriptor.palette)?;
-    encoder.set(Repeat::Infinite)?;
-    for img in gif_descriptor.images {
-        let mut frame = Frame::default();
-        frame.delay = delay / 10;
-        frame.width = width;
-        frame.height = height;
-        frame.buffer = Cow::Borrowed(&*img);
-        frame.transparent = gif_descriptor.transparency;
-        encoder.write_frame(&frame)?;
+impl fmt::Debug for Gif {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Gif {{ palette: Vec<u8 x {:?}>, transparency: {:?}, width: {:?}, height: {:?}, images: Vec<Vec<u8> x {:?}>, delay: {:?} }}",
+            self.palette.len(),
+            self.transparency,
+            self.width,
+            self.height,
+            self.images.len(),
+            self.delay
+        )
     }
-    Ok(())
 }
 
-struct GifDescriptor {
-    palette: Vec<u8>,
-    transparency: Option<u8>,
-    width: u16,
-    height: u16,
-    images: Vec<Vec<u8>>,
+impl Gif {
+    pub fn write<W: io::Write>(&self, mut out: &mut W) -> Result<(), Error> {
+        let mut encoder = Encoder::new(&mut out, self.width, self.height, &self.palette)?;
+        encoder.set(Repeat::Infinite)?;
+        for img in &self.images {
+            let mut frame = Frame::default();
+            frame.delay = self.delay / 10;
+            frame.width = self.width;
+            frame.height = self.height;
+            frame.buffer = Cow::Borrowed(&*img);
+            frame.transparent = self.transparency;
+            encoder.write_frame(&frame)?;
+        }
+        Ok(())
+    }
 }
 
-fn palettize(imgs: &[DynamicImage]) -> Result<GifDescriptor, Error> {
+pub fn engiffen(imgs: &[DynamicImage], fps: usize) -> Result<Gif, Error> {
     if imgs.is_empty() {
         return Err(Error::NoImages);
     }
@@ -139,12 +151,15 @@ fn palettize(imgs: &[DynamicImage]) -> Result<GifDescriptor, Error> {
     }).collect();
     // println!("Mapped pixels to palette in {} ms.", ms(time_map));
 
-    Ok(GifDescriptor {
+    let delay = (1000 / fps) as u16;
+
+    Ok(Gif {
         palette: quant.color_map_rgb(),
         transparency: transparency,
         width: width as u16,
         height: height as u16,
         images: palettized_imgs,
+        delay: delay,
     })
 }
 
@@ -153,7 +168,6 @@ fn palettize(imgs: &[DynamicImage]) -> Result<GifDescriptor, Error> {
 mod tests {
     use super::{engiffen, Error};
     use std::fs::{read_dir, File};
-    use std::io::Cursor;
     use image;
 
     #[test]
@@ -163,9 +177,7 @@ mod tests {
         .map(|path| image::open(&path).unwrap())
         .collect();
 
-        let mut out_file = Cursor::new(vec![]);
-
-        let res = engiffen(&imgs, 30, &mut out_file);
+        let res = engiffen(&imgs, 30);
 
         assert!(res.is_err());
         match res {
@@ -185,7 +197,11 @@ mod tests {
             .collect();
 
         let mut out = File::create("tests/ball.gif").unwrap();
-        engiffen(&imgs, 10, &mut out);
+        let gif = engiffen(&imgs, 10);
+        match gif {
+            Ok(gif) => gif.write(&mut out),
+            Err(_) => panic!("Test should have successfully made a gif."),
+        };
     }
 
     #[test] #[ignore]
@@ -196,6 +212,10 @@ mod tests {
             .collect();
 
         let mut out = File::create("tests/shrug.gif").unwrap();
-        engiffen(&imgs, 30, &mut out);
+        let gif = engiffen(&imgs, 30);
+        match gif {
+            Ok(gif) => gif.write(&mut out),
+            Err(_) => panic!("Test should have successfully made a gif."),
+        };
     }
 }
