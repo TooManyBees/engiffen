@@ -82,14 +82,14 @@ pub fn parse_args(args: &[String]) -> Result<Args, ArgsError> {
     opts.optflag("r", "range", "arguments specify start and end images");
     opts.optflag("h", "help", "display this help");
 
-    let matches = try!{opts.parse(&args[1..])};
+    let matches = opts.parse(&args[1..])?;
     if matches.opt_present("h") {
         let brief = format!("Usage: {} <files ...>", program);
         return Err(ArgsError::DisplayHelp(opts.usage(&brief)));
     }
 
-    let fps: usize = if matches.opt_present("f") {
-        try!{ usize::from_str(&matches.opt_str("f").unwrap()) }
+    let fps: usize = if let Some(fps_str) = matches.opt_str("f") {
+        usize::from_str(&fps_str)?
     } else {
         30
     };
@@ -133,11 +133,10 @@ fn path_and_filename(input: &str) -> Result<(PathBuf, PathBuf), ArgsError> {
         },
         None => Path::new(".")
     };
-    let filename = p.file_name();
-    if filename.is_none() {
-        Err(ArgsError::ImageRange(format!("Invalid filename {:?}", input)))
+    if let Some(filename) = p.file_name() {
+        Ok((parent.to_owned(), PathBuf::from(filename)))
     } else {
-        Ok((parent.to_owned(), PathBuf::from(filename.unwrap())))
+        Err(ArgsError::ImageRange(format!("Invalid filename {:?}", input)))
     }
 }
 
