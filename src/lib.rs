@@ -152,7 +152,8 @@ fn palettize(imgs: &[DynamicImage]) -> Result<GifDescriptor, Error> {
 #[allow(unused_must_use)]
 mod tests {
     use super::{engiffen, Error};
-    use std::fs::{remove_file, read_dir, File};
+    use std::fs::{read_dir, File};
+    use std::io::Cursor;
     use image;
 
     #[test]
@@ -162,9 +163,9 @@ mod tests {
         .map(|path| image::open(&path).unwrap())
         .collect();
 
-        let out_file = "tests/test_out.gif";
+        let mut out_file = Cursor::new(vec![]);
 
-        let res = engiffen(&imgs, 30, &mut File::create(&out_file).unwrap());
+        let res = engiffen(&imgs, 30, &mut out_file);
 
         assert!(res.is_err());
         match res {
@@ -172,9 +173,6 @@ mod tests {
                 assert_eq!((one, another), ((100, 100), (50, 50)));
             },
             _ => unreachable!(),
-        }
-        match remove_file(&out_file) {
-            _ => {} // I don't care
         }
     }
 
