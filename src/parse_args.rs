@@ -2,13 +2,13 @@ extern crate getopts;
 
 use getopts::Options;
 use std::path::{Path, PathBuf};
-use std::{env, error, fmt};
+use std::{error, fmt};
 use std::str::FromStr;
 use std;
 
 use self::SourceImages::*;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum SourceImages {
     StartEnd(PathBuf, PathBuf, PathBuf),
     List(Vec<String>),
@@ -22,7 +22,7 @@ pub struct Args {
     pub out_file: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ArgsError {
     Parse(getopts::Fail),
     Fps(std::num::ParseIntError),
@@ -73,8 +73,7 @@ impl error::Error for ArgsError {
     }
 }
 
-pub fn parse_args(args: env::Args) -> Result<Args, ArgsError> {
-    let args: Vec<String> = args.collect();
+pub fn parse_args(args: &[String]) -> Result<Args, ArgsError> {
     let program = args[0].clone();
 
     let mut opts = Options::new();
@@ -103,9 +102,6 @@ pub fn parse_args(args: env::Args) -> Result<Args, ArgsError> {
             if path_start != path_end {
                 return Err(ArgsError::ImageRange("start and end files are from different directories".to_string()));
             }
-            if !path_start.exists() {
-                return Err(ArgsError::ImageRange(format!("directory not readable: {:?}", path_start)));
-            }
             StartEnd(path_start, filename_start, filename_end)
         } else if matches.free.len() == 1 {
             return Err(ArgsError::ImageRange("missing end filename".to_string()));
@@ -127,11 +123,142 @@ pub fn parse_args(args: env::Args) -> Result<Args, ArgsError> {
 
 fn path_and_filename(input: &str) -> Result<(PathBuf, PathBuf), ArgsError> {
     let p = Path::new(&input);
-    let parent = p.parent().unwrap_or(Path::new("."));
+    let parent = match p.parent() {
+        Some(s) => {
+            if s == Path::new("") {
+                Path::new(".")
+            } else {
+                s
+            }
+        },
+        None => Path::new(".")
+    };
     let filename = p.file_name();
     if filename.is_none() {
         Err(ArgsError::ImageRange(format!("Invalid filename {:?}", input)))
     } else {
         Ok((parent.to_owned(), PathBuf::from(filename.unwrap())))
+    }
+}
+
+#[cfg(test)]
+#[allow(unused_must_use)]
+mod tests {
+    use super::{parse_args, SourceImages, ArgsError};
+    use std::path::PathBuf;
+
+    fn make_args(args: &str) -> Vec<String> {
+        args.split(" ").map(|s| s.to_owned()).collect()
+    }
+
+    #[test]
+    fn test_outfile() {
+        let args = parse_args(&make_args("engiffen -o bees.gif"));
+        assert!(args.is_ok());
+        assert_eq!(args.unwrap().out_file, "bees.gif");
+    }
+
+    #[test]
+    fn test_fps() {
+        let args = parse_args(&make_args("engiffen -f 45"));
+        assert!(args.is_ok());
+        assert_eq!(args.unwrap().fps, 45);
+    }
+
+    #[test]
+    fn test_fps_missing() {
+        use std::str::FromStr;
+
+        let args = parse_args(&make_args("engiffen -f barry"));
+        assert!(args.is_err());
+        let parse_error = usize::from_str("barry").err().unwrap();
+        assert_eq!(
+            args.err().unwrap(),
+            ArgsError::Fps(parse_error)
+        );
+    }
+
+    #[test]
+    fn test_file_list() {
+        let args = parse_args(&make_args("engiffen this.jpg that.jpg other.jpg"));
+        assert!(args.is_ok());
+        assert_eq!(
+            args.unwrap().source,
+            SourceImages::List(vec![
+                "this.jpg".to_owned(),
+                "that.jpg".to_owned(),
+                "other.jpg".to_owned()
+            ])
+        );
+    }
+
+    #[test]
+    fn test_file_range() {
+        let args = parse_args(&make_args("engiffen -r thing001.jpg thing010.jpg"));
+        assert!(args.is_ok());
+        assert_eq!(
+            args.unwrap().source,
+            SourceImages::StartEnd(
+                PathBuf::from("."),
+                PathBuf::from("thing001.jpg"),
+                PathBuf::from("thing010.jpg")
+            )
+        );
+    }
+
+    #[test]
+    fn test_file_range_remote_directory() {
+        let args = parse_args(&make_args("engiffen -r ../dir/thing001.jpg ../dir/thing010.jpg"));
+        assert!(args.is_ok());
+        assert_eq!(
+            args.unwrap().source,
+            SourceImages::StartEnd(
+                PathBuf::from("../dir"),
+                PathBuf::from("thing001.jpg"),
+                PathBuf::from("thing010.jpg")
+            )
+        );
+    }
+
+    #[test]
+    fn test_file_range_different_directories() {
+        let args = parse_args(&make_args("engiffen -r ./thing001.jpg ../thing010.jpg"));
+        assert!(args.is_err());
+        assert_eq!(
+            args.err().unwrap(),
+            ArgsError::ImageRange("start and end files are from different directories".to_string())
+        );
+    }
+
+    #[test]
+    fn test_file_range_incomplete() {
+        let args = parse_args(&make_args("engiffen -r ./thing001.jpg"));
+        assert!(args.is_err());
+        assert_eq!(
+            args.err().unwrap(),
+            ArgsError::ImageRange("missing end filename".to_string())
+        );
+    }
+
+    #[test]
+    fn test_file_range_missing() {
+        let args = parse_args(&make_args("engiffen -r"));
+        assert!(args.is_err());
+        assert_eq!(
+            args.err().unwrap(),
+            ArgsError::ImageRange("missing start and end filenames".to_string())
+        );
+    }
+
+    #[test]
+    fn test_help() {
+        let args = parse_args(&make_args("engiffen -h"));
+        // Such a long DisplayHelp message that will probably change as more
+        // options get added. Just check the error's type instead.
+        match args {
+            Err(ArgsError::DisplayHelp(_)) => assert!(true),
+            Err(_) => panic!("Wrong error type returned"),
+            Ok(_) => panic!("Should not have returned an Ok args result"),
+        }
     }
 }

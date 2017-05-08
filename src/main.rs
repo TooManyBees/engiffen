@@ -4,9 +4,9 @@ extern crate getopts;
 
 use std::io;
 use std::io::Write;
-use std::{env, error, fmt, process};
+use std::{env, fmt, process};
 use std::fs::{read_dir, File};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::{Instant, Duration};
 use parse_args::{parse_args, Args, SourceImages};
 
@@ -73,7 +73,8 @@ fn run_engiffen(args: &Args) -> Result<((String, Duration)), RuntimeError> {
 }
 
 fn main() {
-    let args = parse_args(env::args()).map_err(|e| {
+    let arg_strings: Vec<String> = env::args().collect();
+    let args = parse_args(&arg_strings).map_err(|e| {
         println!("{}", e);
         process::exit(1);
     }).unwrap();
@@ -86,6 +87,7 @@ fn main() {
         },
         Err(e) => {
             writeln!(&mut io::stderr(), "{}", e);
+            process::exit(1);
         },
     }
 }
