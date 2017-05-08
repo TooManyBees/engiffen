@@ -46,11 +46,21 @@ impl fmt::Display for RuntimeError {
 fn run_engiffen(args: &Args) -> Result<((String, Duration)), RuntimeError> {
     let source_images = match args.source {
         SourceImages::StartEnd(ref dir, ref start_path, ref end_path) => {
-            read_dir(dir)
-            .map_err(|_| RuntimeError::Directory(dir.clone()))?
-            .map(|e| e.unwrap().path())
-            .skip_while(|path| path.file_name().unwrap() < start_path)
-            .take_while(|path| path.file_name().unwrap() <= end_path)
+            let start_string = start_path.as_os_str();
+            let end_string = end_path.as_os_str();
+
+            let mut files: Vec<_> = read_dir(dir)
+                .map_err(|_| RuntimeError::Directory(dir.clone()))?
+                .filter_map(|e| e.ok())
+                .collect();
+
+            // Filesystem probably already sorted by name, but just in case
+            files.sort_by_key(|f| f.file_name());
+
+            files.iter()
+            .skip_while(|path| path.file_name() < start_string)
+            .take_while(|path| path.file_name() <= end_string)
+            .map(|e| e.path())
             .collect()
         },
         SourceImages::List(ref list) => list.into_iter().map(PathBuf::from).collect(),
@@ -58,9 +68,8 @@ fn run_engiffen(args: &Args) -> Result<((String, Duration)), RuntimeError> {
     };
 
     let imgs: Vec<_> = source_images.iter()
-        .map(|path| image::open(&path) )
-        .filter(|i| i.is_ok()) // arg :(
-        .map(|i| i.unwrap())
+        .map(|path| image::open(&path).ok() )
+        .filter_map(|i| i)
         .collect();
 
     let mut out = File::create(&args.out_file)
