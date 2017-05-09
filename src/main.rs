@@ -16,14 +16,7 @@ mod parse_args;
 enum RuntimeError {
     Directory(PathBuf),
     Destination(String),
-    Image(image::ImageError),
     Engiffen(engiffen::Error),
-}
-
-impl From<image::ImageError> for RuntimeError {
-    fn from(err: image::ImageError) -> RuntimeError {
-        RuntimeError::Image(err)
-    }
 }
 
 impl From<engiffen::Error> for RuntimeError {
@@ -37,7 +30,6 @@ impl fmt::Display for RuntimeError {
         match *self {
             RuntimeError::Directory(ref dir) => write!(f, "No such directory {:?}", dir),
             RuntimeError::Destination(ref dst) => write!(f, "Couldn't write to output '{}'", dst),
-            RuntimeError::Image(ref e) => write!(f, "Image load error: {}", e),
             RuntimeError::Engiffen(ref e) => e.fmt(f,)
         }
     }
@@ -67,10 +59,7 @@ fn run_engiffen(args: &Args) -> Result<((String, Duration)), RuntimeError> {
         SourceImages::StdIn => vec![],
     };
 
-    let imgs: Vec<_> = source_images.iter()
-        .map(|path| image::open(&path).ok() )
-        .filter_map(|i| i)
-        .collect();
+    let imgs = engiffen::load_images(&source_images);
 
     let mut out = File::create(&args.out_file)
         .map_err(|_| RuntimeError::Destination(args.out_file.to_owned()))?;

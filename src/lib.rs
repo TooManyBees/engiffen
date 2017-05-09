@@ -6,6 +6,7 @@ use std::io;
 use std::{error, fmt};
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use image::{GenericImage, DynamicImage};
 use gif::{Frame, Encoder, Repeat, SetParameter};
 use color_quant::NeuQuant;
@@ -17,11 +18,28 @@ use color_quant::NeuQuant;
 //     duration.as_secs() * 1000 + duration.subsec_nanos() as u64 / 1000000
 // }
 
+pub struct Image {
+    inner: DynamicImage,
+    path: Option<PathBuf>,
+}
+
+impl fmt::Debug for Image {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Image {{ path: {:?}, dimensions: {} x {} }}", self.path, self.inner.width(), self.inner.height())
+    }
+}
 
 #[derive(Debug)]
 pub enum Error {
     NoImages,
     Mismatch((u32, u32), (u32, u32)),
+    ImageLoad(image::ImageError)
+}
+
+impl From<image::ImageError> for Error {
+    fn from(err: image::ImageError) -> Error {
+        Error::ImageLoad(err)
+    }
 }
 
 impl fmt::Display for Error {
@@ -29,6 +47,7 @@ impl fmt::Display for Error {
         match *self {
             Error::NoImages => write!(f, "No frames sent for engiffening"),
             Error::Mismatch(_, _) => write!(f, "Frames don't have the same dimensions"),
+            Error::ImageLoad(ref e) => write!(f, "Image load error: {}", e),
         }
     }
 }
@@ -38,6 +57,7 @@ impl error::Error for Error {
         match *self {
             Error::NoImages => "No frames sent for engiffening",
             Error::Mismatch(_, _) => "Frames don't have the same dimensions",
+            Error::ImageLoad(_) => "Unable to load image",
         }
     }
 }
@@ -66,7 +86,7 @@ impl fmt::Debug for Gif {
 }
 
 impl Gif {
-    pub fn write<W: io::Write>(&self, mut out: &mut W) -> Result<(), io::Error> {
+    pub fn write<W: io::Write>(&self, mut out: &mut W) -> io::Result<()> {
         let mut encoder = Encoder::new(&mut out, self.width, self.height, &self.palette)?;
         encoder.set(Repeat::Infinite)?;
         for img in &self.images {
@@ -82,16 +102,34 @@ impl Gif {
     }
 }
 
-pub fn engiffen(imgs: &[DynamicImage], fps: usize) -> Result<Gif, Error> {
+pub fn load_image<P>(path: P) -> Result<Image, Error>
+    where P: AsRef<Path> {
+    let img = image::open(&path)?;
+    Ok(Image {
+        inner: img,
+        path: Some(path.as_ref().to_path_buf()),
+    })
+}
+
+pub fn load_images<P>(paths: &[P]) -> Vec<Image>
+    where P: AsRef<Path> {
+    paths.iter()
+        .map(|path| load_image(path))
+        .filter_map(|img| img.ok())
+        .collect()
+}
+
+/// Converts a sequence of images into a `Gif`
+pub fn engiffen(imgs: &[Image], fps: usize) -> Result<Gif, Error> {
     if imgs.is_empty() {
         return Err(Error::NoImages);
     }
     // let time_check_dimensions = Instant::now();
     let (width, height) = {
-        let ref first = imgs[0];
+        let ref first = imgs[0].inner;
         let first_dimensions = (first.width(), first.height());
         for img in imgs.iter() {
-            let other_dimensions = (img.width(), img.height());
+            let other_dimensions = (img.inner.width(), img.inner.height());
             if first_dimensions != other_dimensions {
                 return Err(Error::Mismatch(first_dimensions, other_dimensions));
             }
@@ -101,8 +139,8 @@ pub fn engiffen(imgs: &[DynamicImage], fps: usize) -> Result<Gif, Error> {
     // println!("Checked image dimensions in {} ms.", ms(time_check_dimensions));
     // let time_push = Instant::now();
     let mut colors: Vec<u8> = Vec::with_capacity(width as usize * height as usize * imgs.len());
-    for img in imgs {
-        for (x, y, px) in img.pixels() {
+    for img in imgs.iter() {
+        for (x, y, px) in img.inner.pixels() {
             if x % 2 == 0 || y % 2 == 0 {
                 // Only feed 1/4 of each source frame's pixels to the NeuQuant
                 // learning algorithm.
@@ -130,7 +168,7 @@ pub fn engiffen(imgs: &[DynamicImage], fps: usize) -> Result<Gif, Error> {
     let mut transparency = None;
     let mut cache: HashMap<[u8; 4], u8> = HashMap::new();
     let palettized_imgs: Vec<Vec<u8>> = imgs.iter().map(|img| {
-        img.pixels().map(|(_, _, px)| {
+        img.inner.pixels().map(|(_, _, px)| {
             *cache.entry(px.data).or_insert_with(|| {
                 let idx = quant.index_of(&px.data) as u8;
                 if px.data[3] == 0 { transparency = Some(idx); }
