@@ -19,9 +19,9 @@ exclude = [
 ]
 
 [dependencies]
-image = "0.13"
-gif = "0.9"
-color_quant = "1.0.0"
+image = "~0.13"
+gif = "~0.9"
+color_quant = "~1.0.0"
 getopts = "0.2.14"
 
 [lib]
@@ -31,3 +31,4 @@ path = "src/lib.rs"
 [[bin]]
 name = "engiffen"
 path = "src/main.rs"
+doc = false
