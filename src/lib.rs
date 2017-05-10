@@ -41,12 +41,19 @@ impl fmt::Debug for Image {
 pub enum Error {
     NoImages,
     Mismatch((u32, u32), (u32, u32)),
-    ImageLoad(image::ImageError)
+    ImageLoad(image::ImageError),
+    ImageWrite(io::Error),
 }
 
 impl From<image::ImageError> for Error {
     fn from(err: image::ImageError) -> Error {
         Error::ImageLoad(err)
+    }
+}
+
+impl From<io::Error> for Error {
+    fn from(err: io::Error) -> Error {
+        Error::ImageWrite(err)
     }
 }
 
@@ -56,6 +63,7 @@ impl fmt::Display for Error {
             Error::NoImages => write!(f, "No frames sent for engiffening"),
             Error::Mismatch(_, _) => write!(f, "Frames don't have the same dimensions"),
             Error::ImageLoad(ref e) => write!(f, "Image load error: {}", e),
+            Error::ImageWrite(ref e) => write!(f, "Image write error: {}", e),
         }
     }
 }
@@ -66,6 +74,7 @@ impl error::Error for Error {
             Error::NoImages => "No frames sent for engiffening",
             Error::Mismatch(_, _) => "Frames don't have the same dimensions",
             Error::ImageLoad(_) => "Unable to load image",
+            Error::ImageWrite(_) => "Unable to write image",
         }
     }
 }
@@ -97,10 +106,24 @@ impl fmt::Debug for Gif {
 impl Gif {
     /// Writes the animated Gif to any output that implements Write.
     ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use std::fs::File;
+    /// # use engiffen::{Image, engiffen};
+    /// # fn foo() -> Result<(), engiffen::Error> {
+    /// # let images: Vec<Image> = vec![];
+    /// let mut output = File::create("output.gif")?;
+    /// let gif = engiffen(&images, 10)?;
+    /// gif.write(&mut output)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
     /// # Errors
     ///
     /// Returns the `std::io::Result` of the underlying `write` function calls.
-    pub fn write<W: io::Write>(&self, mut out: &mut W) -> io::Result<()> {
+    pub fn write<W: io::Write>(&self, mut out: &mut W) -> Result<(), Error> {
         let mut encoder = Encoder::new(&mut out, self.width, self.height, &self.palette)?;
         encoder.set(Repeat::Infinite)?;
         for img in &self.images {
