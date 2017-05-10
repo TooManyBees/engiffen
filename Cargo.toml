@@ -1,6 +1,6 @@
 [package]
 name = "engiffen"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Jesse Bees <jesse@toomanybees.com>"]
 description = """
 Encodes GIF images from sequences of images. Includes an installable
@@ -12,7 +12,6 @@ readme = "README.md"
 keywords = ["gif", "stream", "image", "cli"]
 categories = ["multimedia", "command-line-utilities"]
 license = "MIT"
-publish = false
 
 exclude = [
   "tests/*"
