@@ -220,15 +220,14 @@ pub fn engiffen(imgs: &[Image], fps: usize) -> Result<Gif, Error> {
 #[cfg(test)]
 #[allow(unused_must_use)]
 mod tests {
-    use super::{engiffen, Error};
+    use super::{load_image, engiffen, Error};
     use std::fs::{read_dir, File};
-    use image;
 
     #[test]
     fn test_error_on_size_mismatch() {
         let imgs: Vec<_> = read_dir("tests/mismatched_size").unwrap()
         .map(|e| e.unwrap().path())
-        .map(|path| image::open(&path).unwrap())
+        .map(|path| load_image(&path).unwrap())
         .collect();
 
         let res = engiffen(&imgs, 30);
@@ -251,7 +250,7 @@ mod tests {
                 Some(ext) if ext == "bmp" => true,
                 _ => false,
             })
-            .map(|path| image::open(&path).unwrap())
+            .map(|path| load_image(&path).unwrap())
             .collect();
 
         let mut out = File::create("tests/ball.gif").unwrap();
@@ -270,7 +269,7 @@ mod tests {
                 Some(ext) if ext == "tga" => true,
                 _ => false,
             })
-            .map(|path| image::open(&path).unwrap())
+            .map(|path| load_image(&path).unwrap())
             .collect();
 
         let mut out = File::create("tests/shrug.gif").unwrap();
