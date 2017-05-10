@@ -28,7 +28,7 @@ use color_quant::NeuQuant;
 /// contains the path used to read it from disk.
 pub struct Image {
     inner: DynamicImage,
-    path: Option<PathBuf>,
+    pub path: Option<PathBuf>,
 }
 
 impl fmt::Debug for Image {
@@ -117,6 +117,18 @@ impl Gif {
 }
 
 /// Loads an image from the given file path.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// # use engiffen::{load_image, Image, Error};
+/// # use std::path::PathBuf;
+/// # fn foo() -> Result<Image, Error> {
+/// let image = load_image("test/ball/ball01.bmp")?;
+/// assert_eq!(image.path, Some(PathBuf::from("test/ball/ball01.bmp")));
+/// # Ok(image)
+/// # }
+/// ```
 ///
 /// # Errors
 ///
