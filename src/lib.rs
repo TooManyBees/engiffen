@@ -116,7 +116,7 @@ impl Gif {
     }
 }
 
-/// Loads an image from the given file path
+/// Loads an image from the given file path.
 ///
 /// # Errors
 ///
@@ -130,7 +130,17 @@ pub fn load_image<P>(path: P) -> Result<Image, Error>
     })
 }
 
-/// Loads images from a list of given paths
+/// Loads images from a list of given paths. Errors encountered while loading files
+/// are skipped.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// # use engiffen::load_images;
+/// let paths = vec!["tests/ball/ball06.bmp", "tests/ball/ball07.bmp", "tests/ball/ball08.bmp"];
+/// let images = load_images(&paths);
+/// assert_eq!(images.len(), 2); // The last path doesn't exist. It was silently skipped.
+/// ```
 ///
 /// Skips images that fail to load. If all images fail, returns an empty vector.
 pub fn load_images<P>(paths: &[P]) -> Vec<Image>
@@ -142,6 +152,19 @@ pub fn load_images<P>(paths: &[P]) -> Vec<Image>
 }
 
 /// Converts a sequence of images into a `Gif` at a given frame rate.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// # use engiffen::{load_images, engiffen, Gif, Error};
+/// # fn foo() -> Result<Gif, Error> {
+/// let paths = vec!["tests/ball/ball01.bmp", "tests/ball/ball02.bmp", "tests/ball/ball03.bmp"];
+/// let images = load_images(&paths);
+/// let gif = engiffen(&images, 10)?;
+/// assert_eq!(gif.images.len(), 3);
+/// # Ok(gif)
+/// # }
+/// ```
 ///
 /// # Errors
 ///
