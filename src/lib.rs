@@ -1,3 +1,8 @@
+//! Engiffen is a library to convert sequences of images into animated Gifs.
+//!
+//! This library is a wrapper around the image and gif crates to convert
+//! a sequence of images into an animated Gif.
+
 extern crate image;
 extern crate gif;
 extern crate color_quant;
@@ -18,6 +23,9 @@ use color_quant::NeuQuant;
 //     duration.as_secs() * 1000 + duration.subsec_nanos() as u64 / 1000000
 // }
 
+/// An image, currently a wrapper around `image::DynamicImage`. If loaded from
+/// disk through the `load_image` or `load_images` functions, its path property
+/// contains the path used to read it from disk.
 pub struct Image {
     inner: DynamicImage,
     path: Option<PathBuf>,
@@ -62,6 +70,7 @@ impl error::Error for Error {
     }
 }
 
+/// Struct representing an animated Gif
 #[derive(Eq, PartialEq, Clone, Hash)]
 pub struct Gif {
     pub palette: Vec<u8>,
@@ -86,6 +95,11 @@ impl fmt::Debug for Gif {
 }
 
 impl Gif {
+    /// Writes the animated Gif to any output that implements Write.
+    ///
+    /// # Errors
+    ///
+    /// Returns the `std::io::Result` of the underlying `write` function calls.
     pub fn write<W: io::Write>(&self, mut out: &mut W) -> io::Result<()> {
         let mut encoder = Encoder::new(&mut out, self.width, self.height, &self.palette)?;
         encoder.set(Repeat::Infinite)?;
@@ -102,6 +116,11 @@ impl Gif {
     }
 }
 
+/// Loads an image from the given file path
+///
+/// # Errors
+///
+/// Returns an error if the path can't be read or if the image can't be decoded
 pub fn load_image<P>(path: P) -> Result<Image, Error>
     where P: AsRef<Path> {
     let img = image::open(&path)?;
@@ -111,6 +130,9 @@ pub fn load_image<P>(path: P) -> Result<Image, Error>
     })
 }
 
+/// Loads images from a list of given paths
+///
+/// Skips images that fail to load. If all images fail, returns an empty vector.
 pub fn load_images<P>(paths: &[P]) -> Vec<Image>
     where P: AsRef<Path> {
     paths.iter()
@@ -119,7 +141,12 @@ pub fn load_images<P>(paths: &[P]) -> Vec<Image>
         .collect()
 }
 
-/// Converts a sequence of images into a `Gif`
+/// Converts a sequence of images into a `Gif` at a given frame rate.
+///
+/// # Errors
+///
+/// If any image dimensions differ, this function will return an Error::Mismatch
+/// containing tuples of the conflicting image dimensions.
 pub fn engiffen(imgs: &[Image], fps: usize) -> Result<Gif, Error> {
     if imgs.is_empty() {
         return Err(Error::NoImages);
