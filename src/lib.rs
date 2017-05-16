@@ -3,6 +3,8 @@
 //! This library is a wrapper around the image and gif crates to convert
 //! a sequence of images into an animated Gif.
 
+#![doc(html_root_url = "https://docs.rs/engiffen/0.2.0")]
+
 extern crate image;
 extern crate gif;
 extern crate color_quant;
