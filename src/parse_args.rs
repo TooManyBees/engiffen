@@ -19,13 +19,14 @@ pub enum SourceImages {
 pub struct Args {
     pub source: SourceImages,
     pub fps: usize,
+    pub sample_rate: Option<u32>,
     pub out_file: String,
 }
 
 #[derive(Debug, PartialEq)]
 pub enum ArgsError {
     Parse(getopts::Fail),
-    Fps(std::num::ParseIntError),
+    ParseInt(std::num::ParseIntError),
     ImageRange(String),
     DisplayHelp(String),
 }
@@ -38,7 +39,7 @@ impl From<getopts::Fail> for ArgsError {
 
 impl From<std::num::ParseIntError> for ArgsError {
     fn from(err: std::num::ParseIntError) -> ArgsError {
-        ArgsError::Fps(err)
+        ArgsError::ParseInt(err)
     }
 }
 
@@ -46,7 +47,7 @@ impl fmt::Display for ArgsError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             ArgsError::Parse(ref err) => write!(f, "Options parse error: {}", err),
-            ArgsError::Fps(_) => write!(f, "Unable to parse framerate as an integer"),
+            ArgsError::ParseInt(_) => write!(f, "Unable to parse argument as an integer"),
             ArgsError::ImageRange(ref s) => write!(f, "Bad image range: {}", s),
             ArgsError::DisplayHelp(ref msg) => write!(f, "{}", msg),
         }
@@ -57,7 +58,7 @@ impl error::Error for ArgsError {
     fn description(&self) -> &str {
         match *self {
             ArgsError::Parse(ref err) => err.description(),
-            ArgsError::Fps(ref err) => err.description(),
+            ArgsError::ParseInt(ref err) => err.description(),
             ArgsError::ImageRange(_) => "Bad image range",
             ArgsError::DisplayHelp(_) => "Display help message"
         }
@@ -66,7 +67,7 @@ impl error::Error for ArgsError {
     fn cause(&self) -> Option<&error::Error> {
         match *self {
             ArgsError::Parse(ref err) => Some(err),
-            ArgsError::Fps(ref err) => Some(err),
+            ArgsError::ParseInt(ref err) => Some(err),
             ArgsError::ImageRange(_) => None,
             ArgsError::DisplayHelp(_) => None,
         }
@@ -79,6 +80,7 @@ pub fn parse_args(args: &[String]) -> Result<Args, ArgsError> {
     let mut opts = Options::new();
     opts.optopt("o", "outfile", "engiffen to this filename", "FILE");
     opts.optopt("f", "framerate", "frames per second", "30");
+    opts.optopt("s", "sample-rate", "reduces how many pixels are analyzed when generating palette, higher means faster", "2");
     opts.optflag("r", "range", "arguments specify start and end images");
     opts.optflag("h", "help", "display this help");
 
@@ -92,6 +94,12 @@ pub fn parse_args(args: &[String]) -> Result<Args, ArgsError> {
         usize::from_str(&fps_str)?
     } else {
         30
+    };
+
+    let sample_rate = if let Some(sample_rate_str) = matches.opt_str("s") {
+        Some(u32::from_str(&sample_rate_str)?)
+    } else {
+        None
     };
 
     let out_file = matches.opt_str("o").map(|f| f.clone()).unwrap_or("out.gif".to_string());
@@ -117,6 +125,7 @@ pub fn parse_args(args: &[String]) -> Result<Args, ArgsError> {
     Ok(Args {
         source: source,
         fps: fps,
+        sample_rate: sample_rate,
         out_file: out_file,
     })
 }
@@ -145,6 +154,7 @@ fn path_and_filename(input: &str) -> Result<(PathBuf, PathBuf), ArgsError> {
 mod tests {
     use super::{parse_args, SourceImages, ArgsError, Args};
     use std::path::PathBuf;
+    use std::str::FromStr;
 
     fn make_args(args: &str) -> Vec<String> {
         args.split(" ").map(|s| s.to_owned()).collect()
@@ -175,7 +185,21 @@ mod tests {
 
         let args = parse_args(&make_args("engiffen -f barry"));
         let parse_error = usize::from_str("barry").err().unwrap();
-        assert_err_eq(args, ArgsError::Fps(parse_error));
+        assert_err_eq(args, ArgsError::ParseInt(parse_error));
+    }
+
+    #[test]
+    fn test_sample_rate() {
+        let args = parse_args(&make_args("engiffen -s 2"));
+        assert!(args.is_ok());
+        assert_eq!(args.unwrap().sample_rate, Some(2));
+    }
+
+    #[test]
+    fn test_sample_rate_missing() {
+        let args = parse_args(&make_args("engiffen -s barry"));
+        let parse_error = u32::from_str("barry").err().unwrap();
+        assert_err_eq(args, ArgsError::ParseInt(parse_error));
     }
 
     #[test]

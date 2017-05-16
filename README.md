@@ -34,8 +34,17 @@ let paths = vec!["vector", "of", "file", "paths", "on", "disk"];
 let images = load_images(&paths);
 let mut output = File::create("output.gif")?;
 
-let gif = engiffen(&images, 10)?; // encode an animated gif at 10 frames per second
+// encode an animated gif at 10 frames per second
+let gif = engiffen(&images, 10, None)?;
 gif.write(&mut output);
+```
+
+```rust
+// Optionally specify how many pixels of each frame should be sampled
+// when computing the gif's palette. This value reduces the amount of
+// sampling work to 1/9th of what it normally would, by only sampling
+// every 3rd pixel on every 3rd row (i.e. pixels lying on a 3x3 grid).
+let gif = engiffen(&images, 10, Some(3));
 ```
 
 ## Major work to do

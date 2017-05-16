@@ -116,7 +116,7 @@ impl Gif {
     /// # fn foo() -> Result<(), engiffen::Error> {
     /// # let images: Vec<Image> = vec![];
     /// let mut output = File::create("output.gif")?;
-    /// let gif = engiffen(&images, 10)?;
+    /// let gif = engiffen(&images, 10, None)?;
     /// gif.write(&mut output)?;
     /// # Ok(())
     /// # }
@@ -188,7 +188,12 @@ pub fn load_images<P>(paths: &[P]) -> Vec<Image>
         .collect()
 }
 
-/// Converts a sequence of images into a `Gif` at a given frame rate.
+/// Converts a sequence of images into a `Gif` at a given frame rate. The `sample_rate`
+/// parameter, if passed, specifies the fraction of pixels that will be sampled
+/// when the color palette is computed. Higher values means fewer pixels sampled, and
+/// it scales quadratically. In practice, if the value is `None` or `Some(1)`, then all
+/// pixels will be sampled. Otherwise, for values of `Some(N)`, every Nth pixel on every
+/// Nth row will be sampled, for a total of 1/(N*N) of the pixels sampled.
 ///
 /// # Examples
 ///
@@ -197,7 +202,7 @@ pub fn load_images<P>(paths: &[P]) -> Vec<Image>
 /// # fn foo() -> Result<Gif, Error> {
 /// let paths = vec!["tests/ball/ball01.bmp", "tests/ball/ball02.bmp", "tests/ball/ball03.bmp"];
 /// let images = load_images(&paths);
-/// let gif = engiffen(&images, 10)?;
+/// let gif = engiffen(&images, 10, None)?;
 /// assert_eq!(gif.images.len(), 3);
 /// # Ok(gif)
 /// # }
@@ -207,7 +212,7 @@ pub fn load_images<P>(paths: &[P]) -> Vec<Image>
 ///
 /// If any image dimensions differ, this function will return an Error::Mismatch
 /// containing tuples of the conflicting image dimensions.
-pub fn engiffen(imgs: &[Image], fps: usize) -> Result<Gif, Error> {
+pub fn engiffen(imgs: &[Image], fps: usize, sample_rate: Option<u32>) -> Result<Gif, Error> {
     if imgs.is_empty() {
         return Err(Error::NoImages);
     }
@@ -226,12 +231,13 @@ pub fn engiffen(imgs: &[Image], fps: usize) -> Result<Gif, Error> {
     // println!("Checked image dimensions in {} ms.", ms(time_check_dimensions));
     // let time_push = Instant::now();
     let mut colors: Vec<u8> = Vec::with_capacity(width as usize * height as usize * imgs.len());
+    let skip_pixels = sample_rate.unwrap_or(1);
     for img in imgs.iter() {
         for (x, y, px) in img.inner.pixels() {
-            if x % 2 == 0 || y % 2 == 0 {
-                // Only feed 1/4 of each source frame's pixels to the NeuQuant
-                // learning algorithm.
-                continue;
+            if skip_pixels > 1 {
+                if x % skip_pixels != 0 || y % skip_pixels != 0 {
+                    continue;
+                }
             }
             if px.data[3] == 0 {
                 colors.push(0);
@@ -290,7 +296,7 @@ mod tests {
         .map(|path| load_image(&path).unwrap())
         .collect();
 
-        let res = engiffen(&imgs, 30);
+        let res = engiffen(&imgs, 30, None);
 
         assert!(res.is_err());
         match res {
@@ -314,7 +320,7 @@ mod tests {
             .collect();
 
         let mut out = File::create("tests/ball.gif").unwrap();
-        let gif = engiffen(&imgs, 10);
+        let gif = engiffen(&imgs, 10, Some(2));
         match gif {
             Ok(gif) => gif.write(&mut out),
             Err(_) => panic!("Test should have successfully made a gif."),
@@ -333,7 +339,7 @@ mod tests {
             .collect();
 
         let mut out = File::create("tests/shrug.gif").unwrap();
-        let gif = engiffen(&imgs, 30);
+        let gif = engiffen(&imgs, 30, Some(2));
         match gif {
             Ok(gif) => gif.write(&mut out),
             Err(_) => panic!("Test should have successfully made a gif."),
