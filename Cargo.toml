@@ -18,6 +18,9 @@ exclude = [
   "tests/*"
 ]
 
+[features]
+debug-stderr = []
+
 [dependencies]
 image = "~0.13"
 gif = "~0.9"

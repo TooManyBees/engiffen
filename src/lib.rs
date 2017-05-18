@@ -9,7 +9,7 @@ extern crate image;
 extern crate gif;
 extern crate color_quant;
 
-use std::io;
+use std::io::{self, Write};
 use std::{error, fmt};
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -18,12 +18,13 @@ use image::{GenericImage, DynamicImage};
 use gif::{Frame, Encoder, Repeat, SetParameter};
 use color_quant::NeuQuant;
 
-// use std::time::{Instant};
+#[cfg(feature = "debug-stderr")] use std::time::{Instant};
 
-// fn ms(duration: Instant) -> u64 {
-//     let duration = duration.elapsed();
-//     duration.as_secs() * 1000 + duration.subsec_nanos() as u64 / 1000000
-// }
+#[cfg(feature = "debug-stderr")]
+fn ms(duration: Instant) -> u64 {
+    let duration = duration.elapsed();
+    duration.as_secs() * 1000 + duration.subsec_nanos() as u64 / 1000000
+}
 
 /// An image, currently a wrapper around `image::DynamicImage`. If loaded from
 /// disk through the `load_image` or `load_images` functions, its path property
@@ -216,7 +217,7 @@ pub fn engiffen(imgs: &[Image], fps: usize, sample_rate: Option<u32>) -> Result<
     if imgs.is_empty() {
         return Err(Error::NoImages);
     }
-    // let time_check_dimensions = Instant::now();
+    #[cfg(feature = "debug-stderr")] let time_check_dimensions = Instant::now();
     let (width, height) = {
         let ref first = imgs[0].inner;
         let first_dimensions = (first.width(), first.height());
@@ -228,8 +229,9 @@ pub fn engiffen(imgs: &[Image], fps: usize, sample_rate: Option<u32>) -> Result<
         }
         first_dimensions
     };
-    // println!("Checked image dimensions in {} ms.", ms(time_check_dimensions));
-    // let time_push = Instant::now();
+    #[cfg(feature = "debug-stderr")]
+    writeln!(&mut std::io::stderr(), "Checked image dimensions in {} ms.", ms(time_check_dimensions)).expect("failed to write to stderr");
+    #[cfg(feature = "debug-stderr")] let time_push = Instant::now();
     let mut colors: Vec<u8> = Vec::with_capacity(width as usize * height as usize * imgs.len());
     let skip_pixels = sample_rate.unwrap_or(1);
     for img in imgs.iter() {
@@ -252,12 +254,15 @@ pub fn engiffen(imgs: &[Image], fps: usize, sample_rate: Option<u32>) -> Result<
             }
         }
     }
-    // println!("Pushed all frame pixels in {} ms.", ms(time_push));
+    #[cfg(feature = "debug-stderr")]
+    writeln!(&mut std::io::stderr(), "Pushed all frame pixels in {} ms.", ms(time_push)).expect("failed to write to stderr");
 
-    // let time_quant = Instant::now();
+    #[cfg(feature = "debug-stderr")] let time_quant = Instant::now();
     let quant = NeuQuant::new(10, 256, &colors);
-    // println!("Computed palette in {} ms.", ms(time_quant));
-    // let time_map = Instant::now();
+    #[cfg(feature = "debug-stderr")]
+    writeln!(&mut std::io::stderr(), "Computed palette in {} ms.", ms(time_quant)).expect("failed to write to stderr");
+
+    #[cfg(feature = "debug-stderr")] let time_map = Instant::now();
     let mut transparency = None;
     let mut cache: HashMap<[u8; 4], u8> = HashMap::new();
     let palettized_imgs: Vec<Vec<u8>> = imgs.iter().map(|img| {
@@ -269,7 +274,8 @@ pub fn engiffen(imgs: &[Image], fps: usize, sample_rate: Option<u32>) -> Result<
             })
         }).collect()
     }).collect();
-    // println!("Mapped pixels to palette in {} ms.", ms(time_map));
+    #[cfg(feature = "debug-stderr")]
+    writeln!(&mut std::io::stderr(), "Mapped pixels to palette in {} ms.", ms(time_map)).expect("failed to write to stderr");
 
     let delay = (1000 / fps) as u16;
 
