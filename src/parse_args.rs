@@ -7,19 +7,21 @@ use std::str::FromStr;
 use std;
 
 use self::SourceImages::*;
+use engiffen::Quantizer;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum SourceImages {
     StartEnd(PathBuf, PathBuf, PathBuf),
     List(Vec<String>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct Args {
     pub source: SourceImages,
     pub fps: usize,
     pub sample_rate: Option<u32>,
     pub out_file: Option<String>,
+    pub quantizer: Quantizer,
 }
 
 #[derive(Debug, PartialEq)]
@@ -80,6 +82,7 @@ pub fn parse_args(args: &[String]) -> Result<Args, ArgsError> {
     opts.optopt("o", "outfile", "engiffen to this filename", "FILE");
     opts.optopt("f", "framerate", "frames per second", "30");
     opts.optopt("s", "sample-rate", "reduces how many pixels are analyzed when generating palette, higher means faster", "2");
+    opts.optopt("q", "quantizer", "pick quantizer algorithm (default: neuquant)", "naive");
     opts.optflag("r", "range", "arguments specify start and end images");
     opts.optflag("h", "help", "display this help");
 
@@ -88,6 +91,13 @@ pub fn parse_args(args: &[String]) -> Result<Args, ArgsError> {
         let brief = format!("Usage: {} <files ...>", program);
         return Err(ArgsError::DisplayHelp(opts.usage(&brief)));
     }
+
+    let quantizer = match matches.opt_str("q").map(|s| s.to_lowercase()) {
+        Some(ref s) if s == "naive" => Quantizer::Naive,
+        Some(ref s) if s == "neuquant" => Quantizer::NeuQuant,
+        Some(_) => Quantizer::NeuQuant,
+        None => Quantizer::NeuQuant,
+    };
 
     let fps: usize = if let Some(fps_str) = matches.opt_str("f") {
         usize::from_str(&fps_str)?
@@ -124,6 +134,7 @@ pub fn parse_args(args: &[String]) -> Result<Args, ArgsError> {
         fps: fps,
         sample_rate: sample_rate,
         out_file: out_file,
+        quantizer: quantizer,
     })
 }
 

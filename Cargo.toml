@@ -22,10 +22,12 @@ exclude = [
 debug-stderr = []
 
 [dependencies]
+lab = "~0.4"
 image = "~0.13"
 gif = "~0.9"
 color_quant = "~1.0.0"
 getopts = "0.2.14"
+rayon = "~0.7"
 
 [lib]
 name = "engiffen"

@@ -8,15 +8,19 @@
 extern crate image;
 extern crate gif;
 extern crate color_quant;
+extern crate lab;
+extern crate rayon;
 
 use std::io::{self, Write};
-use std::{error, fmt};
+use std::{error, fmt, f32};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use image::{GenericImage, DynamicImage};
 use gif::{Frame, Encoder, Repeat, SetParameter};
 use color_quant::NeuQuant;
+use lab::Lab;
+use rayon::prelude::*;
 
 #[cfg(feature = "debug-stderr")] use std::time::{Instant};
 
@@ -24,6 +28,12 @@ use color_quant::NeuQuant;
 fn ms(duration: Instant) -> u64 {
     let duration = duration.elapsed();
     duration.as_secs() * 1000 + duration.subsec_nanos() as u64 / 1000000
+}
+
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+pub enum Quantizer {
+    Naive,
+    NeuQuant,
 }
 
 /// An image, currently a wrapper around `image::DynamicImage`. If loaded from
@@ -213,7 +223,7 @@ pub fn load_images<P>(paths: &[P]) -> Vec<Image>
 ///
 /// If any image dimensions differ, this function will return an Error::Mismatch
 /// containing tuples of the conflicting image dimensions.
-pub fn engiffen(imgs: &[Image], fps: usize, sample_rate: Option<u32>) -> Result<Gif, Error> {
+pub fn engiffen(imgs: &[Image], fps: usize, algo: Quantizer, sample_rate: Option<u32>) -> Result<Gif, Error> {
     if imgs.is_empty() {
         return Err(Error::NoImages);
     }
@@ -231,13 +241,31 @@ pub fn engiffen(imgs: &[Image], fps: usize, sample_rate: Option<u32>) -> Result<
     };
     #[cfg(feature = "debug-stderr")]
     writeln!(&mut std::io::stderr(), "Checked image dimensions in {} ms.", ms(time_check_dimensions)).expect("failed to write to stderr");
+
+    let (palette, palettized_imgs, transparency) = match algo {
+        Quantizer::NeuQuant => neuquant_palettize(&imgs, sample_rate.unwrap_or(1), width, height),
+        Quantizer::Naive => naive_palettize(&imgs),
+    };
+
+    let delay = (1000 / fps) as u16;
+
+    Ok(Gif {
+        palette: palette,
+        transparency: transparency,
+        width: width as u16,
+        height: height as u16,
+        images: palettized_imgs,
+        delay: delay,
+    })
+}
+
+fn neuquant_palettize(imgs: &[Image], sample_rate: u32, width: u32, height: u32) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
     #[cfg(feature = "debug-stderr")] let time_push = Instant::now();
     let mut colors: Vec<u8> = Vec::with_capacity(width as usize * height as usize * imgs.len());
-    let skip_pixels = sample_rate.unwrap_or(1);
     for img in imgs.iter() {
         for (x, y, px) in img.inner.pixels() {
-            if skip_pixels > 1 {
-                if x % skip_pixels != 0 || y % skip_pixels != 0 {
+            if sample_rate > 1 {
+                if x % sample_rate != 0 || y % sample_rate != 0 {
                     continue;
                 }
             }
@@ -277,22 +305,85 @@ pub fn engiffen(imgs: &[Image], fps: usize, sample_rate: Option<u32>) -> Result<
     #[cfg(feature = "debug-stderr")]
     writeln!(&mut std::io::stderr(), "Mapped pixels to palette in {} ms.", ms(time_map)).expect("failed to write to stderr");
 
-    let delay = (1000 / fps) as u16;
+    (quant.color_map_rgb(), palettized_imgs, transparency)
+}
 
-    Ok(Gif {
-        palette: quant.color_map_rgb(),
-        transparency: transparency,
-        width: width as u16,
-        height: height as u16,
-        images: palettized_imgs,
-        delay: delay,
-    })
+fn naive_palettize(imgs: &[Image]) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
+    #[cfg(feature = "debug-stderr")] let time_count = Instant::now();
+    let frequencies: HashMap<[u8; 4], usize> = imgs.par_iter().map(|img| {
+        let mut fr: HashMap<[u8; 4], usize> = HashMap::new();
+        for (_, _, pixel) in img.inner.pixels() {
+            let num = fr.entry(pixel.data).or_insert(0);
+            *num += 1;
+        }
+        fr
+    }).reduce(|| HashMap::new(), |mut acc, fr| {
+        for (color, count) in fr {
+            let num = acc.entry(color).or_insert(0);
+            *num += count;
+        }
+        acc
+    });
+    #[cfg(feature = "debug-stderr")]
+    writeln!(&mut std::io::stderr(), "Counted color frequencies in {} ms", ms(time_count)).expect("failed to write to stderr");
+    #[cfg(feature = "debug-stderr")] let time_lab = Instant::now();
+    let mut sorted_frequencies = frequencies.into_iter()
+        .collect::<Vec<_>>();
+    sorted_frequencies.sort_by(|a, b| b.1.cmp(&a.1));
+    let sorted = sorted_frequencies.into_iter().map(|c| {
+        (c.0, Lab::from_rgba(&c.0))
+    }).collect::<Vec<_>>();
+    #[cfg(feature = "debug-stderr")]
+    writeln!(&mut std::io::stderr(),"Computed Lab values of colors in {} ms", ms(time_lab)).expect("failed to write to stderr");
+
+    let (palette, rest) = if sorted.len() > 256 {
+        (&sorted[..256], &sorted[256..])
+    } else {
+        (&sorted[..], &[] as &[_])
+    };
+
+    let mut map: HashMap<[u8; 4], u8> = HashMap::new();
+    for (i, color) in palette.iter().enumerate() {
+        map.insert(color.0, i as u8);
+    }
+    #[cfg(feature = "debug-stderr")] let time_assign = Instant::now();
+    for color in rest {
+        let closest_index = palette.iter().enumerate().fold((0, f32::INFINITY), |closest, (idx, p)| {
+            let dist = p.1.squared_distance(&color.1);
+            if closest.1 < dist {
+                closest
+            } else {
+                (idx, dist)
+            }
+        }).0;
+        let closest_rgb = palette[closest_index].0;
+        let index = *map.get(&closest_rgb).expect("A color we assigned to the palette is somehow missing from the palette index map.");
+        map.insert(color.0, index);
+    }
+    #[cfg(feature = "debug-stderr")]
+    writeln!(&mut std::io::stderr(), "Assigned palette indices to the rest of the colors in {} ms.", ms(time_assign)).expect("failed to write to stderr");
+
+    #[cfg(feature = "debug-stderr")]let time_index = Instant::now();
+    let palettized_imgs: Vec<Vec<u8>> = imgs.par_iter().map(|img| {
+        img.inner.pixels().map(|(_, _, px)| {
+            *map.get(&px.data).expect("A color in an image was not added to the palette map.")
+        }).collect()
+    }).collect();
+    #[cfg(feature = "debug-stderr")]
+    writeln!(&mut std::io::stderr(), "Mapped pixels to palette in {} ms", ms(time_index)).expect("failed to write to stderr");
+
+    let mut palette_as_bytes = Vec::with_capacity(palette.len() * 3);
+    for color in palette {
+        palette_as_bytes.extend_from_slice(&color.0[0..2]);
+    }
+
+    (palette_as_bytes, palettized_imgs, None)
 }
 
 #[cfg(test)]
 #[allow(unused_must_use)]
 mod tests {
-    use super::{load_image, engiffen, Error};
+    use super::{load_image, engiffen, Error, Quantizer};
     use std::fs::{read_dir, File};
 
     #[test]
@@ -302,7 +393,7 @@ mod tests {
         .map(|path| load_image(&path).unwrap())
         .collect();
 
-        let res = engiffen(&imgs, 30, None);
+        let res = engiffen(&imgs, 30, Quantizer::NeuQuant, None);
 
         assert!(res.is_err());
         match res {
@@ -326,7 +417,7 @@ mod tests {
             .collect();
 
         let mut out = File::create("tests/ball.gif").unwrap();
-        let gif = engiffen(&imgs, 10, Some(2));
+        let gif = engiffen(&imgs, 10, Quantizer::NeuQuant, Some(2));
         match gif {
             Ok(gif) => gif.write(&mut out),
             Err(_) => panic!("Test should have successfully made a gif."),
@@ -345,7 +436,7 @@ mod tests {
             .collect();
 
         let mut out = File::create("tests/shrug.gif").unwrap();
-        let gif = engiffen(&imgs, 30, Some(2));
+        let gif = engiffen(&imgs, 30, Quantizer::NeuQuant, Some(2));
         match gif {
             Ok(gif) => gif.write(&mut out),
             Err(_) => panic!("Test should have successfully made a gif."),
