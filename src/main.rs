@@ -35,7 +35,7 @@ impl fmt::Display for RuntimeError {
 }
 
 fn run_engiffen(args: &Args) -> Result<((Option<String>, Duration)), RuntimeError> {
-    let source_images = match args.source {
+    let source_images: Vec<_> = match args.source {
         SourceImages::StartEnd(ref dir, ref start_path, ref end_path) => {
             let start_string = start_path.as_os_str();
             let end_string = end_path.as_os_str();
@@ -55,7 +55,6 @@ fn run_engiffen(args: &Args) -> Result<((Option<String>, Duration)), RuntimeErro
             .collect()
         },
         SourceImages::List(ref list) => list.into_iter().map(PathBuf::from).collect(),
-        SourceImages::StdIn => vec![],
     };
 
     let imgs = engiffen::load_images(&source_images);

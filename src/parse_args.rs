@@ -12,7 +12,6 @@ use self::SourceImages::*;
 pub enum SourceImages {
     StartEnd(PathBuf, PathBuf, PathBuf),
     List(Vec<String>),
-    StdIn,
 }
 
 #[derive(Debug)]
@@ -116,8 +115,6 @@ pub fn parse_args(args: &[String]) -> Result<Args, ArgsError> {
         } else {
             return Err(ArgsError::ImageRange("missing start and end filenames".to_string()));
         }
-    } else if matches.free.is_empty() {
-        StdIn
     } else {
         List(matches.free)
     };
