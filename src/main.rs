@@ -2,8 +2,7 @@ extern crate engiffen;
 extern crate image;
 extern crate getopts;
 
-use std::io;
-use std::io::Write;
+use std::io::{self, Write};
 use std::{env, fmt, process};
 use std::fs::{read_dir, File};
 use std::path::PathBuf;
@@ -35,7 +34,7 @@ impl fmt::Display for RuntimeError {
     }
 }
 
-fn run_engiffen(args: &Args) -> Result<((String, Duration)), RuntimeError> {
+fn run_engiffen(args: &Args) -> Result<((Option<String>, Duration)), RuntimeError> {
     let source_images = match args.source {
         SourceImages::StartEnd(ref dir, ref start_path, ref end_path) => {
             let start_string = start_path.as_os_str();
@@ -61,13 +60,20 @@ fn run_engiffen(args: &Args) -> Result<((String, Duration)), RuntimeError> {
 
     let imgs = engiffen::load_images(&source_images);
 
-    let mut out = File::create(&args.out_file)
-        .map_err(|_| RuntimeError::Destination(args.out_file.to_owned()))?;
-
     let now = Instant::now();
     let gif = engiffen::engiffen(&imgs, args.fps, args.sample_rate)?;
-    gif.write(&mut out)
-        .map_err(|_| RuntimeError::Destination(args.out_file.to_owned()))?;
+    match args.out_file {
+        Some(ref filename) => {
+            let mut file = File::create(filename)
+                .map_err(|_| RuntimeError::Destination(filename.to_owned()))?;
+            gif.write(&mut file)
+        },
+        None => {
+            let stdout = io::stdout();
+            let mut handle = stdout.lock();
+            gif.write(&mut handle)
+        }
+    }?;
     let duration = now.elapsed();
     Ok((args.out_file.clone(), duration))
 }
@@ -82,7 +88,8 @@ fn main() {
     match run_engiffen(&args) {
         Ok((file, duration)) => {
             let ms = duration.as_secs() * 1000 + duration.subsec_nanos() as u64 / 1000000;
-            writeln!(&mut io::stderr(), "Wrote {} in {} ms", file, ms).expect("failed to write to stderr");
+            let filename = file.unwrap_or("to stdout".to_owned());
+            writeln!(&mut io::stderr(), "Wrote {} in {} ms", filename, ms).expect("failed to write to stderr");
         },
         Err(e) => {
             writeln!(&mut io::stderr(), "{}", e).expect("failed to write to stderr");

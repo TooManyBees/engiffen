@@ -20,7 +20,7 @@ pub struct Args {
     pub source: SourceImages,
     pub fps: usize,
     pub sample_rate: Option<u32>,
-    pub out_file: String,
+    pub out_file: Option<String>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -102,7 +102,7 @@ pub fn parse_args(args: &[String]) -> Result<Args, ArgsError> {
         None
     };
 
-    let out_file = matches.opt_str("o").map(|f| f.clone()).unwrap_or("out.gif".to_string());
+    let out_file = matches.opt_str("o").map(|f| f.clone());
     let source = if matches.opt_present("r") {
         if matches.free.len() >= 2 {
             let (path_start, filename_start) = path_and_filename(&matches.free[0])?;
