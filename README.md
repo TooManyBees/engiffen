@@ -16,10 +16,15 @@ _Source frame, generated gif, and a gif from Photoshop_
 # Read a bunch of bitmaps and write them to a 20-frame-per-second gif at path `hello.gif`
 engiffen *.bmp -f 20 -o hello.gif
 
-# Read a range of files and write them to `out.gif` (the default output path)
-engiffen -r file01.jpg file20.jpg
+# Read a range of files
+engiffen -r file01.jpg file20.jpg -o hello.gif
 # The app sorts them in lexicographical order, so if your shell orders `file9`
 # before `file10`, the resulting gif will not be in that order.
+
+# Print to stdout by leaving out the -o argument
+engiffen *.bmp > output.gif
+# or hose your console by forgetting to redirect!
+engiffen *.bmp
 ```
 
 ## as library
@@ -45,6 +50,21 @@ gif.write(&mut output);
 // sampling work to 1/9th of what it normally would, by only sampling
 // every 3rd pixel on every 3rd row (i.e. pixels lying on a 3x3 grid).
 let gif = engiffen(&images, 10, Some(3));
+```
+
+# debug output
+
+To print timing info to STDERR, compile with the `debug-stderr` feature
+
+```
+$ cargo install engiffen --features debug-stderr
+
+$ engiffen *.tif -f 15 -s 10 > out.gif
+Checked image dimensions in 0 ms.
+Pushed all frame pixels in 469 ms.
+Computed palette in 67 ms.
+Mapped pixels to palette in 3443 ms.
+Wrote to stdout in 5415 ms
 ```
 
 ## Major work to do
