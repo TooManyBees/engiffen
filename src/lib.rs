@@ -30,6 +30,30 @@ fn ms(duration: Instant) -> u64 {
     duration.as_secs() * 1000 + duration.subsec_nanos() as u64 / 1000000
 }
 
+/// A color quantizing strategy.
+///
+/// `Naive` calculates color frequencies, picks the 256 most frequent colors
+/// to be the palette, then reassigns the less frequently occuring colors to
+/// the closest matching palette color.
+///
+/// `NeuQuant` uses the NeuQuant algorithm from the `color_quant` crate. It
+/// trains a neural network using a pseudorandom subset of pixels, then
+/// assigns each pixel its closest matching color in the palette.
+///
+/// # Usage
+///
+/// Pass this as the last argument to `engiffen` to select the quantizing
+/// strategy.
+///
+/// The `NeuQuant` strategy produces the best looking images. Its interior
+/// u32 value reduces the number of pixels that the algorithm uses to train,
+/// which can greatly reduce its workload. Specifically, for a value of N,
+/// only the pixels on every Nth column of every Nth row are considered, so
+/// a value of 1 trains using every pixel, while a value of 2 trains using
+/// 1/4 of all pixels.
+///
+/// The `Naive` strategy is fastest when you know that your input images
+/// have a limited color range, but will produce terrible banding otherwise.
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum Quantizer {
     Naive,
@@ -199,8 +223,8 @@ pub fn load_images<P>(paths: &[P]) -> Vec<Image>
         .collect()
 }
 
-/// Converts a sequence of images into a `Gif` at a given frame rate. The `algorithm`
-/// parameter, determines how the 256-color palette will be computed from the images.
+/// Converts a sequence of images into a `Gif` at a given frame rate. The `quantizer`
+/// parameter selects the algorithm that quantizes the palette into 256-colors.
 ///
 /// # Examples
 ///
@@ -219,7 +243,7 @@ pub fn load_images<P>(paths: &[P]) -> Vec<Image>
 ///
 /// If any image dimensions differ, this function will return an Error::Mismatch
 /// containing tuples of the conflicting image dimensions.
-pub fn engiffen(imgs: &[Image], fps: usize, algorithm: Quantizer) -> Result<Gif, Error> {
+pub fn engiffen(imgs: &[Image], fps: usize, quantizer: Quantizer) -> Result<Gif, Error> {
     if imgs.is_empty() {
         return Err(Error::NoImages);
     }
@@ -238,7 +262,7 @@ pub fn engiffen(imgs: &[Image], fps: usize, algorithm: Quantizer) -> Result<Gif,
     #[cfg(feature = "debug-stderr")]
     writeln!(&mut std::io::stderr(), "Checked image dimensions in {} ms.", ms(time_check_dimensions)).expect("failed to write to stderr");
 
-    let (palette, palettized_imgs, transparency) = match algorithm {
+    let (palette, palettized_imgs, transparency) = match quantizer {
         Quantizer::NeuQuant(sample_rate) => neuquant_palettize(&imgs, sample_rate, width, height),
         Quantizer::Naive => naive_palettize(&imgs),
     };
