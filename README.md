@@ -17,9 +17,16 @@ _Source frame, generated gif, and a gif from Photoshop_
 engiffen *.bmp -f 20 -o hello.gif
 
 # Read a range of files
-engiffen -r file01.jpg file20.jpg -o hello.gif
+engiffen -r file01.bmp file20.bmp -o hello.gif
 # The app sorts them in lexicographical order, so if your shell orders `file9`
 # before `file10`, the resulting gif will not be in that order.
+
+# Use a faster but worse quality algorithm
+engiffen -r file01.bmp file20.bmp -o hello.gif -q naive
+
+# Use the default NeuQuant algorithm, but with a reduced pixel sample rate
+# Values over 1 reduces the amount of pixels the algorithm trains with
+engiffen -r file01.bmp file100.bmp -o hello.gif -s 2
 
 # Print to stdout by leaving out the -o argument
 engiffen *.bmp > output.gif
@@ -32,7 +39,7 @@ engiffen *.bmp
 ```rust
 extern crate engiffen;
 
-use engiffen::{load_images, engiffen, Gif};
+use engiffen::{load_images, engiffen, Gif, Quantizer};
 use std::fs::File;
 
 let paths = vec!["vector", "of", "file", "paths", "on", "disk"];
@@ -40,7 +47,7 @@ let images = load_images(&paths);
 let mut output = File::create("output.gif")?;
 
 // encode an animated gif at 10 frames per second
-let gif = engiffen(&images, 10, None)?;
+let gif = engiffen(&images, 10, Quantizer::NeuQuant(2))?;
 gif.write(&mut output);
 ```
 
