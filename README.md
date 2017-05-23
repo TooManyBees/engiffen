@@ -74,6 +74,15 @@ Mapped pixels to palette in 3443 ms.
 Wrote to stdout in 5415 ms
 ```
 
+# misc
+
+Tests that actually create gifs from sample frames are ignored. When
+running the ignored specs, run in release mode or they'll take forever.
+
+```
+cargo test --release -- --ignored
+```
+
 ## Major work to do
 
 * Incremental frame processing
