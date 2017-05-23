@@ -60,7 +60,7 @@ fn run_engiffen(args: &Args) -> Result<((Option<String>, Duration)), RuntimeErro
     let imgs = engiffen::load_images(&source_images);
 
     let now = Instant::now();
-    let gif = engiffen::engiffen(&imgs, args.fps, args.quantizer, args.sample_rate)?;
+    let gif = engiffen::engiffen(&imgs, args.fps, args.quantizer)?;
     match args.out_file {
         Some(ref filename) => {
             let mut file = File::create(filename)

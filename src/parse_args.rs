@@ -19,7 +19,6 @@ pub enum SourceImages {
 pub struct Args {
     pub source: SourceImages,
     pub fps: usize,
-    pub sample_rate: Option<u32>,
     pub out_file: Option<String>,
     pub quantizer: Quantizer,
 }
@@ -92,23 +91,24 @@ pub fn parse_args(args: &[String]) -> Result<Args, ArgsError> {
         return Err(ArgsError::DisplayHelp(opts.usage(&brief)));
     }
 
+    let sample_rate = if let Some(sample_rate_str) = matches.opt_str("s") {
+        u32::from_str(&sample_rate_str)?
+    } else {
+        1
+    };
+
     let quantizer = match matches.opt_str("q").map(|s| s.to_lowercase()) {
         Some(ref s) if s == "naive" => Quantizer::Naive,
-        Some(ref s) if s == "neuquant" => Quantizer::NeuQuant,
-        Some(_) => Quantizer::NeuQuant,
-        None => Quantizer::NeuQuant,
+        Some(_) => {
+            Quantizer::NeuQuant(sample_rate)
+        },
+        None => Quantizer::NeuQuant(sample_rate),
     };
 
     let fps: usize = if let Some(fps_str) = matches.opt_str("f") {
         usize::from_str(&fps_str)?
     } else {
         30
-    };
-
-    let sample_rate = if let Some(sample_rate_str) = matches.opt_str("s") {
-        Some(u32::from_str(&sample_rate_str)?)
-    } else {
-        None
     };
 
     let out_file = matches.opt_str("o").map(|f| f.clone());
@@ -132,7 +132,6 @@ pub fn parse_args(args: &[String]) -> Result<Args, ArgsError> {
     Ok(Args {
         source: source,
         fps: fps,
-        sample_rate: sample_rate,
         out_file: out_file,
         quantizer: quantizer,
     })
@@ -160,7 +159,7 @@ fn path_and_filename(input: &str) -> Result<(PathBuf, PathBuf), ArgsError> {
 #[cfg(test)]
 #[allow(unused_must_use)]
 mod tests {
-    use super::{parse_args, SourceImages, ArgsError, Args};
+    use super::{parse_args, SourceImages, ArgsError, Args, Quantizer};
     use std::path::PathBuf;
     use std::str::FromStr;
 
@@ -200,7 +199,7 @@ mod tests {
     fn test_sample_rate() {
         let args = parse_args(&make_args("engiffen -s 2"));
         assert!(args.is_ok());
-        assert_eq!(args.unwrap().sample_rate, Some(2));
+        assert_eq!(args.unwrap().quantizer, Quantizer::NeuQuant(2));
     }
 
     #[test]

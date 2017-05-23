@@ -33,7 +33,7 @@ fn ms(duration: Instant) -> u64 {
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum Quantizer {
     Naive,
-    NeuQuant,
+    NeuQuant(u32),
 }
 
 /// An image, currently a wrapper around `image::DynamicImage`. If loaded from
@@ -123,11 +123,11 @@ impl Gif {
     ///
     /// ```rust,no_run
     /// use std::fs::File;
-    /// # use engiffen::{Image, engiffen};
+    /// # use engiffen::{Image, engiffen, Quantizer};
     /// # fn foo() -> Result<(), engiffen::Error> {
     /// # let images: Vec<Image> = vec![];
     /// let mut output = File::create("output.gif")?;
-    /// let gif = engiffen(&images, 10, None)?;
+    /// let gif = engiffen(&images, 10, Quantizer::NeuQuant(2))?;
     /// gif.write(&mut output)?;
     /// # Ok(())
     /// # }
@@ -199,21 +199,17 @@ pub fn load_images<P>(paths: &[P]) -> Vec<Image>
         .collect()
 }
 
-/// Converts a sequence of images into a `Gif` at a given frame rate. The `sample_rate`
-/// parameter, if passed, specifies the fraction of pixels that will be sampled
-/// when the color palette is computed. Higher values means fewer pixels sampled, and
-/// it scales quadratically. In practice, if the value is `None` or `Some(1)`, then all
-/// pixels will be sampled. Otherwise, for values of `Some(N)`, every Nth pixel on every
-/// Nth row will be sampled, for a total of 1/(N*N) of the pixels sampled.
+/// Converts a sequence of images into a `Gif` at a given frame rate. The `algorithm`
+/// parameter, determines how the 256-color palette will be computed from the images.
 ///
 /// # Examples
 ///
 /// ```rust,no_run
-/// # use engiffen::{load_images, engiffen, Gif, Error};
+/// # use engiffen::{load_images, engiffen, Gif, Error, Quantizer};
 /// # fn foo() -> Result<Gif, Error> {
 /// let paths = vec!["tests/ball/ball01.bmp", "tests/ball/ball02.bmp", "tests/ball/ball03.bmp"];
 /// let images = load_images(&paths);
-/// let gif = engiffen(&images, 10, None)?;
+/// let gif = engiffen(&images, 10, Quantizer::NeuQuant(2))?;
 /// assert_eq!(gif.images.len(), 3);
 /// # Ok(gif)
 /// # }
@@ -223,7 +219,7 @@ pub fn load_images<P>(paths: &[P]) -> Vec<Image>
 ///
 /// If any image dimensions differ, this function will return an Error::Mismatch
 /// containing tuples of the conflicting image dimensions.
-pub fn engiffen(imgs: &[Image], fps: usize, algo: Quantizer, sample_rate: Option<u32>) -> Result<Gif, Error> {
+pub fn engiffen(imgs: &[Image], fps: usize, algorithm: Quantizer) -> Result<Gif, Error> {
     if imgs.is_empty() {
         return Err(Error::NoImages);
     }
@@ -242,8 +238,8 @@ pub fn engiffen(imgs: &[Image], fps: usize, algo: Quantizer, sample_rate: Option
     #[cfg(feature = "debug-stderr")]
     writeln!(&mut std::io::stderr(), "Checked image dimensions in {} ms.", ms(time_check_dimensions)).expect("failed to write to stderr");
 
-    let (palette, palettized_imgs, transparency) = match algo {
-        Quantizer::NeuQuant => neuquant_palettize(&imgs, sample_rate.unwrap_or(1), width, height),
+    let (palette, palettized_imgs, transparency) = match algorithm {
+        Quantizer::NeuQuant(sample_rate) => neuquant_palettize(&imgs, sample_rate, width, height),
         Quantizer::Naive => naive_palettize(&imgs),
     };
 
@@ -393,7 +389,7 @@ mod tests {
         .map(|path| load_image(&path).unwrap())
         .collect();
 
-        let res = engiffen(&imgs, 30, Quantizer::NeuQuant, None);
+        let res = engiffen(&imgs, 30, Quantizer::NeuQuant(1));
 
         assert!(res.is_err());
         match res {
@@ -417,7 +413,7 @@ mod tests {
             .collect();
 
         let mut out = File::create("tests/ball.gif").unwrap();
-        let gif = engiffen(&imgs, 10, Quantizer::NeuQuant, Some(2));
+        let gif = engiffen(&imgs, 10, Quantizer::NeuQuant(2));
         match gif {
             Ok(gif) => gif.write(&mut out),
             Err(_) => panic!("Test should have successfully made a gif."),
@@ -436,7 +432,7 @@ mod tests {
             .collect();
 
         let mut out = File::create("tests/shrug.gif").unwrap();
-        let gif = engiffen(&imgs, 30, Quantizer::NeuQuant, Some(2));
+        let gif = engiffen(&imgs, 30, Quantizer::NeuQuant(2));
         match gif {
             Ok(gif) => gif.write(&mut out),
             Err(_) => panic!("Test should have successfully made a gif."),
