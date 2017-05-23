@@ -166,7 +166,7 @@ mod tests {
     fn test_outfile() {
         let args = parse_args(&make_args("engiffen -o bees.gif"));
         assert!(args.is_ok());
-        assert_eq!(args.unwrap().out_file, "bees.gif");
+        assert_eq!(args.unwrap().out_file, Some("bees.gif".to_owned()));
     }
 
     #[test]
