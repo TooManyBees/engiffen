@@ -11,7 +11,8 @@ extern crate color_quant;
 extern crate lab;
 extern crate rayon;
 
-use std::io::{self, Write};
+use std::io;
+#[cfg(feature= "debug-stderr")] use std::io::Write;
 use std::{error, fmt, f32};
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -21,6 +22,8 @@ use gif::{Frame, Encoder, Repeat, SetParameter};
 use color_quant::NeuQuant;
 use lab::Lab;
 use rayon::prelude::*;
+
+#[cfg(feature = "debug-stderr")] #[macro_use] mod macros;
 
 #[cfg(feature = "debug-stderr")] use std::time::{Instant};
 
@@ -260,7 +263,7 @@ pub fn engiffen(imgs: &[Image], fps: usize, quantizer: Quantizer) -> Result<Gif,
         first_dimensions
     };
     #[cfg(feature = "debug-stderr")]
-    writeln!(&mut std::io::stderr(), "Checked image dimensions in {} ms.", ms(time_check_dimensions)).expect("failed to write to stderr");
+    printerr!("Checked image dimensions in {} ms.", ms(time_check_dimensions));
 
     let (palette, palettized_imgs, transparency) = match quantizer {
         Quantizer::NeuQuant(sample_rate) => neuquant_palettize(&imgs, sample_rate, width, height),
@@ -303,12 +306,12 @@ fn neuquant_palettize(imgs: &[Image], sample_rate: u32, width: u32, height: u32)
         }
     }
     #[cfg(feature = "debug-stderr")]
-    writeln!(&mut std::io::stderr(), "Pushed all frame pixels in {} ms.", ms(time_push)).expect("failed to write to stderr");
+    printerr!("Pushed all frame pixels in {} ms.", ms(time_push));
 
     #[cfg(feature = "debug-stderr")] let time_quant = Instant::now();
     let quant = NeuQuant::new(10, 256, &colors);
     #[cfg(feature = "debug-stderr")]
-    writeln!(&mut std::io::stderr(), "Computed palette in {} ms.", ms(time_quant)).expect("failed to write to stderr");
+    printerr!("Computed palette in {} ms.", ms(time_quant));
 
     #[cfg(feature = "debug-stderr")] let time_map = Instant::now();
     let mut transparency = None;
@@ -323,7 +326,7 @@ fn neuquant_palettize(imgs: &[Image], sample_rate: u32, width: u32, height: u32)
         }).collect()
     }).collect();
     #[cfg(feature = "debug-stderr")]
-    writeln!(&mut std::io::stderr(), "Mapped pixels to palette in {} ms.", ms(time_map)).expect("failed to write to stderr");
+    printerr!("Mapped pixels to palette in {} ms.", ms(time_map));
 
     (quant.color_map_rgb(), palettized_imgs, transparency)
 }
@@ -345,7 +348,7 @@ fn naive_palettize(imgs: &[Image]) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
         acc
     });
     #[cfg(feature = "debug-stderr")]
-    writeln!(&mut std::io::stderr(), "Counted color frequencies in {} ms", ms(time_count)).expect("failed to write to stderr");
+    printerr!("Counted color frequencies in {} ms", ms(time_count));
     #[cfg(feature = "debug-stderr")] let time_lab = Instant::now();
     let mut sorted_frequencies = frequencies.into_iter()
         .collect::<Vec<_>>();
@@ -354,7 +357,7 @@ fn naive_palettize(imgs: &[Image]) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
         (c.0, Lab::from_rgba(&c.0))
     }).collect::<Vec<_>>();
     #[cfg(feature = "debug-stderr")]
-    writeln!(&mut std::io::stderr(),"Computed Lab values of colors in {} ms", ms(time_lab)).expect("failed to write to stderr");
+    printerr!("Computed Lab values of colors in {} ms", ms(time_lab));
 
     let (palette, rest) = if sorted.len() > 256 {
         (&sorted[..256], &sorted[256..])
@@ -381,7 +384,7 @@ fn naive_palettize(imgs: &[Image]) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
         map.insert(color.0, index);
     }
     #[cfg(feature = "debug-stderr")]
-    writeln!(&mut std::io::stderr(), "Assigned palette indices to the rest of the colors in {} ms.", ms(time_assign)).expect("failed to write to stderr");
+    printerr!("Assigned palette indices to the rest of the colors in {} ms.", ms(time_assign));
 
     #[cfg(feature = "debug-stderr")]let time_index = Instant::now();
     let palettized_imgs: Vec<Vec<u8>> = imgs.par_iter().map(|img| {
@@ -390,7 +393,7 @@ fn naive_palettize(imgs: &[Image]) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
         }).collect()
     }).collect();
     #[cfg(feature = "debug-stderr")]
-    writeln!(&mut std::io::stderr(), "Mapped pixels to palette in {} ms", ms(time_index)).expect("failed to write to stderr");
+    printerr!("Mapped pixels to palette in {} ms", ms(time_index));
 
     let mut palette_as_bytes = Vec::with_capacity(palette.len() * 3);
     for color in palette {

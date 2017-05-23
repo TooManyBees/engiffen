@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use std::time::{Instant, Duration};
 use parse_args::{parse_args, Args, SourceImages};
 
+#[macro_use] mod macros;
 mod parse_args;
 
 #[derive(Debug)]
@@ -80,7 +81,7 @@ fn run_engiffen(args: &Args) -> Result<((Option<String>, Duration)), RuntimeErro
 fn main() {
     let arg_strings: Vec<String> = env::args().collect();
     let args = parse_args(&arg_strings).map_err(|e| {
-        writeln!(&mut io::stderr(), "{}", e).expect("failed to write to stderr");
+        printerr!("{}", e);
         process::exit(1);
     }).unwrap();
 
@@ -88,10 +89,10 @@ fn main() {
         Ok((file, duration)) => {
             let ms = duration.as_secs() * 1000 + duration.subsec_nanos() as u64 / 1000000;
             let filename = file.unwrap_or("to stdout".to_owned());
-            writeln!(&mut io::stderr(), "Wrote {} in {} ms", filename, ms).expect("failed to write to stderr");
+            printerr!("Wrote {} in {} ms", filename, ms);
         },
         Err(e) => {
-            writeln!(&mut io::stderr(), "{}", e).expect("failed to write to stderr");
+            printerr!("{}", e);
             process::exit(1);
         },
     }
