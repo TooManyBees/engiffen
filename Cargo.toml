@@ -1,6 +1,6 @@
 [package]
 name = "engiffen"
-version = "0.4.0"
+version = "0.5.0"
 authors = ["Jesse Bees <jesse@toomanybees.com>"]
 description = """
 Encodes GIF images from sequences of images. Includes an installable
