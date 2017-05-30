@@ -3,7 +3,7 @@
 //! This library is a wrapper around the image and gif crates to convert
 //! a sequence of images into an animated Gif.
 
-#![doc(html_root_url = "https://docs.rs/engiffen/0.5.0")]
+#![doc(html_root_url = "https://docs.rs/engiffen/0.5.1")]
 
 extern crate image;
 extern crate gif;
@@ -397,7 +397,7 @@ fn naive_palettize(imgs: &[Image]) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
 
     let mut palette_as_bytes = Vec::with_capacity(palette.len() * 3);
     for color in palette {
-        palette_as_bytes.extend_from_slice(&color.0[0..2]);
+        palette_as_bytes.extend_from_slice(&color.0[0..3]);
     }
 
     (palette_as_bytes, palettized_imgs, None)
