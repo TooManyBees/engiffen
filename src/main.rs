@@ -1,13 +1,17 @@
 extern crate engiffen;
 extern crate image;
 extern crate getopts;
+extern crate rand;
 
 use std::io::{self, Write, BufWriter};
 use std::{env, fmt, process};
 use std::fs::{read_dir, File};
 use std::path::PathBuf;
 use std::time::{Instant, Duration};
-use parse_args::{parse_args, Args, SourceImages};
+use parse_args::{parse_args, Args, SourceImages, Modifier};
+
+use rand::distributions::exponential::Exp1;
+use rand::distributions::{IndependentSample, Range};
 
 #[macro_use] mod macros;
 mod parse_args;
@@ -36,7 +40,7 @@ impl fmt::Display for RuntimeError {
 }
 
 fn run_engiffen(args: &Args) -> Result<((Option<String>, Duration)), RuntimeError> {
-    let source_images: Vec<_> = match args.source {
+    let mut source_images: Vec<_> = match args.source {
         SourceImages::StartEnd(ref dir, ref start_path, ref end_path) => {
             let start_string = start_path.as_os_str();
             let end_string = end_path.as_os_str();
@@ -57,6 +61,8 @@ fn run_engiffen(args: &Args) -> Result<((Option<String>, Duration)), RuntimeErro
         },
         SourceImages::List(ref list) => list.into_iter().map(PathBuf::from).collect(),
     };
+
+    modify(&mut source_images, &args.modifiers);
 
     let imgs = engiffen::load_images(&source_images);
 
@@ -97,5 +103,40 @@ fn main() {
             printerr!("{}", e);
             process::exit(1);
         },
+    }
+}
+
+fn modify<P>(source_images: &mut [P], modifiers: &[Modifier]) {
+    for modifier in modifiers {
+        match *modifier {
+            Modifier::Reverse => reverse(source_images),
+            Modifier::Shuffle => shuffle(source_images),
+        }
+    }
+}
+
+fn reverse<T>(src: &mut [T]) {
+    let last_index = src.len()-1;
+    for n in 0..(src.len()/2) {
+        src.swap(n, last_index-n);
+    }
+}
+
+fn shuffle<T>(src: &mut [T]) {
+    use std::cmp::{max, min};
+
+    let mut rng = rand::thread_rng();
+
+    let lenf = src.len() as f64;
+
+    for n in 1..(src.len()) {
+        let i = src.len() - n;
+        let Exp1(e) = rand::random();
+        let frame_weight = i as f64 / lenf;
+        if e * frame_weight > 0.5 {
+            let range = Range::new(max(i - i/2, 0), min(src.len() - 1, i + i/2));
+            let j = range.ind_sample(&mut rng);
+            src.swap(i, j);
+        }
     }
 }

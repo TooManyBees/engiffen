@@ -4,6 +4,7 @@ use getopts::Options;
 use std::path::{Path, PathBuf};
 use std::{error, fmt};
 use std::str::FromStr;
+use std::io::Write;
 use std;
 
 use self::SourceImages::*;
@@ -16,11 +17,18 @@ pub enum SourceImages {
 }
 
 #[derive(Debug, Eq, PartialEq)]
+pub enum Modifier {
+    Reverse,
+    Shuffle
+}
+
+#[derive(Debug, Eq, PartialEq)]
 pub struct Args {
     pub source: SourceImages,
     pub fps: usize,
     pub out_file: Option<String>,
     pub quantizer: Quantizer,
+    pub modifiers: Vec<Modifier>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -83,6 +91,7 @@ pub fn parse_args(args: &[String]) -> Result<Args, ArgsError> {
     opts.optopt("s", "sample-rate", "reduces how many pixels are analyzed when generating palette, higher means faster", "2");
     opts.optopt("q", "quantizer", "pick quantizer algorithm (default: neuquant)", "naive");
     opts.optflag("r", "range", "arguments specify start and end images");
+    opts.optmulti("n", "reorder", "reorder frames before processing", "reverse");
     opts.optflag("h", "help", "display this help");
 
     let matches = opts.parse(&args[1..])?;
@@ -111,6 +120,15 @@ pub fn parse_args(args: &[String]) -> Result<Args, ArgsError> {
         30
     };
 
+    let mut modifiers = vec![];
+    for opt_str in matches.opt_strs("n") {
+        match opt_str.as_str() {
+            "reverse" | "rev" => modifiers.push(Modifier::Reverse),
+            "shuffle" => modifiers.push(Modifier::Shuffle),
+            m @ _ => printerr!("Ignoring unknown modifier `{}`", m),
+        }
+    }
+
     let out_file = matches.opt_str("o").map(|f| f.clone());
     let source = if matches.opt_present("r") {
         if matches.free.len() >= 2 {
@@ -134,6 +152,7 @@ pub fn parse_args(args: &[String]) -> Result<Args, ArgsError> {
         fps: fps,
         out_file: out_file,
         quantizer: quantizer,
+        modifiers: modifiers,
     })
 }
 
