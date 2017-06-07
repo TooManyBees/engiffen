@@ -2,7 +2,7 @@ extern crate engiffen;
 extern crate image;
 extern crate getopts;
 
-use std::io::{self, Write};
+use std::io::{self, Write, BufWriter};
 use std::{env, fmt, process};
 use std::fs::{read_dir, File};
 use std::path::PathBuf;
@@ -64,13 +64,15 @@ fn run_engiffen(args: &Args) -> Result<((Option<String>, Duration)), RuntimeErro
     let gif = engiffen::engiffen(&imgs, args.fps, args.quantizer)?;
     match args.out_file {
         Some(ref filename) => {
-            let mut file = File::create(filename)
-                .map_err(|_| RuntimeError::Destination(filename.to_owned()))?;
+            let mut file = BufWriter::new(
+                File::create(filename)
+                .map_err(|_| RuntimeError::Destination(filename.to_owned()))?
+            );
             gif.write(&mut file)
         },
         None => {
             let stdout = io::stdout();
-            let mut handle = stdout.lock();
+            let mut handle = BufWriter::new(stdout.lock());
             gif.write(&mut handle)
         }
     }?;
