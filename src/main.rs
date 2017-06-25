@@ -2,6 +2,7 @@ extern crate engiffen;
 extern crate image;
 extern crate getopts;
 extern crate rand;
+extern crate glob;
 
 use std::io::{self, Write, BufWriter};
 use std::{env, fmt, process};
@@ -9,6 +10,8 @@ use std::fs::{read_dir, File};
 use std::path::PathBuf;
 use std::time::{Instant, Duration};
 use parse_args::{parse_args, Args, SourceImages, Modifier};
+
+use self::glob::glob;
 
 use rand::distributions::exponential::Exp1;
 use rand::distributions::{IndependentSample, Range};
@@ -60,6 +63,11 @@ fn run_engiffen(args: &Args) -> Result<((Option<String>, Duration)), RuntimeErro
             .collect()
         },
         SourceImages::List(ref list) => list.into_iter().map(PathBuf::from).collect(),
+        SourceImages::Glob(ref string) => {
+            glob(string).expect("glob parsing failed :(")
+                .filter_map(std::result::Result::ok)
+                .collect()
+        },
     };
 
     modify(&mut source_images, &args.modifiers);
