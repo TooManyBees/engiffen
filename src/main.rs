@@ -64,9 +64,12 @@ fn run_engiffen(args: &Args) -> Result<((Option<String>, Duration)), RuntimeErro
         },
         SourceImages::List(ref list) => list.into_iter().map(PathBuf::from).collect(),
         SourceImages::Glob(ref string) => {
-            glob(string).expect("glob parsing failed :(")
+            let paths: Vec<_> = glob(string).expect("glob parsing failed :(")
                 .filter_map(std::result::Result::ok)
-                .collect()
+                .collect();
+            #[cfg(feature = "debug-stderr")]
+            printerr!("Expanded {} into {} files.", string, paths.len());
+            paths
         },
     };
 
