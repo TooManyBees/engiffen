@@ -19,7 +19,9 @@ exclude = [
 ]
 
 [features]
+default = ["globbing"]
 debug-stderr = []
+globbing = ["glob"]
 
 [dependencies]
 lab = "~0.4"
@@ -29,7 +31,7 @@ color_quant = "~1.0.0"
 getopts = "0.2.14"
 rayon = "~0.7"
 rand = "~0.3"
-glob = "~0.2"
+glob = { version = "~0.2", optional = true }
 
 [lib]
 name = "engiffen"

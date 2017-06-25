@@ -12,7 +12,7 @@ extern crate lab;
 extern crate rayon;
 
 use std::io;
-#[cfg(feature= "debug-stderr")] use std::io::Write;
+#[cfg(feature = "debug-stderr")] use std::io::Write;
 use std::{error, fmt, f32};
 use std::borrow::Cow;
 use std::collections::HashMap;

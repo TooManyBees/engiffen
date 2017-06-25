@@ -1,5 +1,5 @@
 extern crate getopts;
-extern crate glob;
+#[cfg(feature = "globbing")] extern crate glob;
 
 use getopts::Options;
 use std::path::{Path, PathBuf};
@@ -15,7 +15,7 @@ use engiffen::Quantizer;
 pub enum SourceImages {
     StartEnd(PathBuf, PathBuf, PathBuf),
     List(Vec<String>),
-    Glob(String),
+    #[cfg(feature = "globbing")] Glob(String),
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -37,7 +37,7 @@ pub struct Args {
 pub enum ArgsError {
     Parse(getopts::Fail),
     ParseInt(std::num::ParseIntError),
-    GlobPattern,
+    #[cfg(feature = "globbing")] GlobPattern,
     ImageRange(String),
     DisplayHelp(String),
 }
@@ -54,6 +54,7 @@ impl From<std::num::ParseIntError> for ArgsError {
     }
 }
 
+#[cfg(feature = "globbing")]
 impl From<glob::PatternError> for ArgsError {
     fn from(_: glob::PatternError) -> ArgsError {
         ArgsError::GlobPattern
@@ -65,7 +66,7 @@ impl fmt::Display for ArgsError {
         match *self {
             ArgsError::Parse(ref err) => write!(f, "Options parse error: {}", err),
             ArgsError::ParseInt(_) => write!(f, "Unable to parse argument as an integer"),
-            ArgsError::GlobPattern => write!(f, "Unable to parse glob pattern"),
+            #[cfg(feature = "globbing")] ArgsError::GlobPattern => write!(f, "Unable to parse glob pattern"),
             ArgsError::ImageRange(ref s) => write!(f, "Bad image range: {}", s),
             ArgsError::DisplayHelp(ref msg) => write!(f, "{}", msg),
         }
@@ -77,7 +78,7 @@ impl error::Error for ArgsError {
         match *self {
             ArgsError::Parse(ref err) => err.description(),
             ArgsError::ParseInt(ref err) => err.description(),
-            ArgsError::GlobPattern => "Bad glob pattern",
+            #[cfg(feature = "globbing")] ArgsError::GlobPattern => "Bad glob pattern",
             ArgsError::ImageRange(_) => "Bad image range",
             ArgsError::DisplayHelp(_) => "Display help message"
         }
@@ -87,7 +88,7 @@ impl error::Error for ArgsError {
         match *self {
             ArgsError::Parse(ref err) => Some(err),
             ArgsError::ParseInt(ref err) => Some(err),
-            ArgsError::GlobPattern => None,
+            #[cfg(feature = "globbing")] ArgsError::GlobPattern => None,
             ArgsError::ImageRange(_) => None,
             ArgsError::DisplayHelp(_) => None,
         }
@@ -157,8 +158,12 @@ pub fn parse_args(args: &[String]) -> Result<Args, ArgsError> {
         }
     } else {
         if matches.free.len() == 1 {
-            glob::Pattern::new(&matches.free[0])?;
-            Glob(matches.free[0].clone())
+            #[cfg(feature = "globbing")]
+            {
+                glob::Pattern::new(&matches.free[0])?;
+                Glob(matches.free[0].clone())
+            }
+            #[cfg(not(feature = "globbing"))] List(matches.free)
         } else {
             List(matches.free)
         }
