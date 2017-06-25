@@ -336,7 +336,7 @@ fn naive_palettize(imgs: &[Image]) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
     let frequencies: HashMap<u32, usize> = imgs.par_iter().map(|img| {
         let mut fr: HashMap<u32, usize> = HashMap::new();
         for (_, _, pixel) in img.inner.pixels() {
-            let i: u32 = unsafe { std::mem::transmute_copy(&pixel.data) };
+            let i: u32 = unsafe { std::mem::transmute(pixel.data) };
             let num = fr.entry(i).or_insert(0);
             *num += 1;
         }
@@ -355,7 +355,7 @@ fn naive_palettize(imgs: &[Image]) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
         .collect::<Vec<_>>();
     sorted_frequencies.sort_by(|a, b| b.1.cmp(&a.1));
     let sorted = sorted_frequencies.into_iter().map(|c| {
-        let arr: [u8; 4] = unsafe { std::mem::transmute_copy(&c.0) };
+        let arr: [u8; 4] = unsafe { std::mem::transmute(c.0) };
         (c.0, Lab::from_rgba(&arr))
     }).collect::<Vec<_>>();
     #[cfg(feature = "debug-stderr")]
@@ -391,7 +391,7 @@ fn naive_palettize(imgs: &[Image]) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
     #[cfg(feature = "debug-stderr")]let time_index = Instant::now();
     let palettized_imgs: Vec<Vec<u8>> = imgs.par_iter().map(|img| {
         img.inner.pixels().map(|(_, _, px)| {
-            let i: u32 = unsafe { std::mem::transmute_copy(&px.data) };
+            let i: u32 = unsafe { std::mem::transmute(px.data) };
             *map.get(&i).expect("A color in an image was not added to the palette map.")
         }).collect()
     }).collect();
@@ -400,7 +400,7 @@ fn naive_palettize(imgs: &[Image]) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
 
     let mut palette_as_bytes = Vec::with_capacity(palette.len() * 3);
     for color in palette {
-        let arr: [u8; 4] = unsafe { std::mem::transmute_copy(&color.0) };
+        let arr: [u8; 4] = unsafe { std::mem::transmute(color.0) };
         palette_as_bytes.extend_from_slice(&arr[0..3]);
     }
 
