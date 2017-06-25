@@ -34,6 +34,12 @@ engiffen *.bmp > output.gif
 engiffen *.bmp
 ```
 
+(If your shell doesn't expand glob patterns into individual args (for
+instance, the Windows commandline), the binary will parse a single
+argument as a glob pattern and expand it into file names on its own.
+You can install the binary with `--no-default-features` to skip this
+feature.)
+
 ## as library
 
 ```rust
