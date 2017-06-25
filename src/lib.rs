@@ -333,10 +333,11 @@ fn neuquant_palettize(imgs: &[Image], sample_rate: u32, width: u32, height: u32)
 
 fn naive_palettize(imgs: &[Image]) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
     #[cfg(feature = "debug-stderr")] let time_count = Instant::now();
-    let frequencies: HashMap<[u8; 4], usize> = imgs.par_iter().map(|img| {
-        let mut fr: HashMap<[u8; 4], usize> = HashMap::new();
+    let frequencies: HashMap<u32, usize> = imgs.par_iter().map(|img| {
+        let mut fr: HashMap<u32, usize> = HashMap::new();
         for (_, _, pixel) in img.inner.pixels() {
-            let num = fr.entry(pixel.data).or_insert(0);
+            let i: u32 = unsafe { std::mem::transmute(pixel.data) };
+            let num = fr.entry(i).or_insert(0);
             *num += 1;
         }
         fr
@@ -354,7 +355,8 @@ fn naive_palettize(imgs: &[Image]) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
         .collect::<Vec<_>>();
     sorted_frequencies.sort_by(|a, b| b.1.cmp(&a.1));
     let sorted = sorted_frequencies.into_iter().map(|c| {
-        (c.0, Lab::from_rgba(&c.0))
+        let arr: [u8; 4] = unsafe { std::mem::transmute(c.0) };
+        (c.0, Lab::from_rgba(&arr))
     }).collect::<Vec<_>>();
     #[cfg(feature = "debug-stderr")]
     printerr!("Computed Lab values of colors in {} ms", ms(time_lab));
@@ -365,7 +367,7 @@ fn naive_palettize(imgs: &[Image]) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
         (&sorted[..], &[] as &[_])
     };
 
-    let mut map: HashMap<[u8; 4], u8> = HashMap::new();
+    let mut map: HashMap<u32, u8> = HashMap::new();
     for (i, color) in palette.iter().enumerate() {
         map.insert(color.0, i as u8);
     }
@@ -389,7 +391,8 @@ fn naive_palettize(imgs: &[Image]) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
     #[cfg(feature = "debug-stderr")]let time_index = Instant::now();
     let palettized_imgs: Vec<Vec<u8>> = imgs.par_iter().map(|img| {
         img.inner.pixels().map(|(_, _, px)| {
-            *map.get(&px.data).expect("A color in an image was not added to the palette map.")
+            let i: u32 = unsafe { std::mem::transmute(px.data) };
+            *map.get(&i).expect("A color in an image was not added to the palette map.")
         }).collect()
     }).collect();
     #[cfg(feature = "debug-stderr")]
@@ -397,7 +400,8 @@ fn naive_palettize(imgs: &[Image]) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
 
     let mut palette_as_bytes = Vec::with_capacity(palette.len() * 3);
     for color in palette {
-        palette_as_bytes.extend_from_slice(&color.0[0..3]);
+        let arr: [u8; 4] = unsafe { std::mem::transmute(color.0) };
+        palette_as_bytes.extend_from_slice(&arr[0..3]);
     }
 
     (palette_as_bytes, palettized_imgs, None)
