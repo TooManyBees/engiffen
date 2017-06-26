@@ -280,9 +280,10 @@ pub fn engiffen(imgs: &[Image], fps: usize, quantizer: Quantizer) -> Result<Gif,
 }
 
 fn neuquant_palettize(imgs: &[Image], sample_rate: u32, width: u32, height: u32) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
+    let image_len = (width * height * 4 / sample_rate / sample_rate) as usize;
     #[cfg(feature = "debug-stderr")] let time_push = Instant::now();
-    let mut colors: Vec<u8> = Vec::with_capacity((width * height * 4 / sample_rate / sample_rate) as usize * imgs.len());
-    for img in imgs.iter() {
+    let colors: Vec<u8> = imgs.par_iter().map(|img| {
+        let mut temp: Vec<_> = Vec::with_capacity(image_len);
         for (x, y, px) in img.inner.pixels() {
             if sample_rate > 1 {
                 if x % sample_rate != 0 || y % sample_rate != 0 {
@@ -290,18 +291,22 @@ fn neuquant_palettize(imgs: &[Image], sample_rate: u32, width: u32, height: u32)
                 }
             }
             if px.data[3] == 0 {
-                colors.push(0);
-                colors.push(0);
-                colors.push(0);
-                colors.push(0);
+                temp.push(0);
+                temp.push(0);
+                temp.push(0);
+                temp.push(0);
             } else {
-                colors.push(px.data[0]);
-                colors.push(px.data[1]);
-                colors.push(px.data[2]);
-                colors.push(255);
+                temp.push(px.data[0]);
+                temp.push(px.data[1]);
+                temp.push(px.data[2]);
+                temp.push(255);
             }
         }
-    }
+        temp
+    }).reduce(|| Vec::with_capacity(image_len * imgs.len()), |mut acc, img| {
+        acc.extend_from_slice(&img);
+        acc
+    });
     #[cfg(feature = "debug-stderr")]
     printerr!("Neuquant: Concatenated all pixels in {} ms.", ms(time_push));
 
