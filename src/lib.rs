@@ -254,7 +254,6 @@ pub fn engiffen(imgs: &[Image], fps: usize, quantizer: Quantizer) -> Result<Gif,
     if imgs.is_empty() {
         return Err(Error::NoImages);
     }
-    #[cfg(feature = "debug-stderr")] let time_check_dimensions = Instant::now();
     let (width, height) = {
         let ref first = imgs[0].inner;
         let first_dimensions = (first.width(), first.height());
@@ -266,8 +265,6 @@ pub fn engiffen(imgs: &[Image], fps: usize, quantizer: Quantizer) -> Result<Gif,
         }
         first_dimensions
     };
-    #[cfg(feature = "debug-stderr")]
-    printerr!("Checked image dimensions in {} ms.", ms(time_check_dimensions));
 
     let (palette, palettized_imgs, transparency) = match quantizer {
         Quantizer::NeuQuant(sample_rate) => neuquant_palettize(&imgs, sample_rate, width, height),
@@ -310,12 +307,12 @@ fn neuquant_palettize(imgs: &[Image], sample_rate: u32, width: u32, height: u32)
         }
     }
     #[cfg(feature = "debug-stderr")]
-    printerr!("Pushed all frame pixels in {} ms.", ms(time_push));
+    printerr!("Neuquant: Concatenated all pixels in {} ms.", ms(time_push));
 
     #[cfg(feature = "debug-stderr")] let time_quant = Instant::now();
     let quant = NeuQuant::new(10, 256, &colors);
     #[cfg(feature = "debug-stderr")]
-    printerr!("Computed palette in {} ms.", ms(time_quant));
+    printerr!("Neuquant: Computed palette in {} ms.", ms(time_quant));
 
     #[cfg(feature = "debug-stderr")] let time_map = Instant::now();
     let mut transparency = None;
@@ -330,7 +327,7 @@ fn neuquant_palettize(imgs: &[Image], sample_rate: u32, width: u32, height: u32)
         }).collect()
     }).collect();
     #[cfg(feature = "debug-stderr")]
-    printerr!("Mapped pixels to palette in {} ms.", ms(time_map));
+    printerr!("Neuquant: Mapped pixels to palette in {} ms.", ms(time_map));
 
     (quant.color_map_rgb(), palettized_imgs, transparency)
 }
@@ -352,7 +349,7 @@ fn naive_palettize(imgs: &[Image]) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
         acc
     });
     #[cfg(feature = "debug-stderr")]
-    printerr!("Counted color frequencies in {} ms", ms(time_count));
+    printerr!("Naive: Counted color frequencies in {} ms", ms(time_count));
     #[cfg(feature = "debug-stderr")] let time_lab = Instant::now();
     let mut sorted_frequencies = frequencies.into_iter()
         .collect::<Vec<_>>();
@@ -361,7 +358,7 @@ fn naive_palettize(imgs: &[Image]) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
         (c.0, Lab::from_rgba(&c.0))
     }).collect::<Vec<_>>();
     #[cfg(feature = "debug-stderr")]
-    printerr!("Computed Lab values of colors in {} ms", ms(time_lab));
+    printerr!("Naive: Computed Lab values of colors in {} ms", ms(time_lab));
 
     let (palette, rest) = if sorted.len() > 256 {
         (&sorted[..256], &sorted[256..])
@@ -388,7 +385,7 @@ fn naive_palettize(imgs: &[Image]) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
         map.insert(color.0, index);
     }
     #[cfg(feature = "debug-stderr")]
-    printerr!("Assigned palette indices to the rest of the colors in {} ms.", ms(time_assign));
+    printerr!("Naive: Assigned palette indices to the rest of the colors in {} ms.", ms(time_assign));
 
     #[cfg(feature = "debug-stderr")]let time_index = Instant::now();
     let palettized_imgs: Vec<Vec<u8>> = imgs.par_iter().map(|img| {
@@ -397,7 +394,7 @@ fn naive_palettize(imgs: &[Image]) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
         }).collect()
     }).collect();
     #[cfg(feature = "debug-stderr")]
-    printerr!("Mapped pixels to palette in {} ms", ms(time_index));
+    printerr!("Naive: Mapped pixels to palette in {} ms", ms(time_index));
 
     let mut palette_as_bytes = Vec::with_capacity(palette.len() * 3);
     for color in palette {
