@@ -288,7 +288,7 @@ pub fn engiffen(imgs: &[Image], fps: usize, quantizer: Quantizer) -> Result<Gif,
 
 fn neuquant_palettize(imgs: &[Image], sample_rate: u32, width: u32, height: u32) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
     #[cfg(feature = "debug-stderr")] let time_push = Instant::now();
-    let mut colors: Vec<u8> = Vec::with_capacity(width as usize * height as usize * imgs.len());
+    let mut colors: Vec<u8> = Vec::with_capacity((width * height * 4 / sample_rate / sample_rate) as usize * imgs.len());
     for img in imgs.iter() {
         for (x, y, px) in img.inner.pixels() {
             if sample_rate > 1 {
