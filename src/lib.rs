@@ -315,10 +315,11 @@ fn neuquant_palettize(imgs: &[Image], sample_rate: u32, width: u32, height: u32)
 
     #[cfg(feature = "debug-stderr")] let time_map = Instant::now();
     let mut transparency = None;
-    let mut cache: HashMap<[u8; 4], u8> = HashMap::new();
+    let mut cache: HashMap<u32, u8> = HashMap::new();
     let palettized_imgs: Vec<Vec<u8>> = imgs.iter().map(|img| {
         img.inner.pixels().map(|(_, _, px)| {
-            *cache.entry(px.data).or_insert_with(|| {
+            let key: u32 = unsafe { std::mem::transmute(px.data) };
+            *cache.entry(key).or_insert_with(|| {
                 let idx = quant.index_of(&px.data) as u8;
                 if px.data[3] == 0 { transparency = Some(idx); }
                 idx
