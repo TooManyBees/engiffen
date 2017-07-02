@@ -1,6 +1,6 @@
 [package]
 name = "engiffen"
-version = "0.6.1"
+version = "0.7.0"
 authors = ["Jesse Bees <jesse@toomanybees.com>"]
 description = """
 Encodes GIF images from sequences of images. Includes an installable
@@ -31,6 +31,7 @@ color_quant = "~1.0.0"
 getopts = "0.2.14"
 rayon = "~0.7"
 rand = "~0.3"
+fnv = "~1.0"
 glob = { version = "~0.2", optional = true }
 
 [lib]

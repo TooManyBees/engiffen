@@ -10,18 +10,20 @@ extern crate gif;
 extern crate color_quant;
 extern crate lab;
 extern crate rayon;
+extern crate fnv;
 
 use std::io;
 #[cfg(feature = "debug-stderr")] use std::io::Write;
 use std::{error, fmt, f32};
 use std::borrow::Cow;
-use std::collections::HashMap;
+// use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use image::{GenericImage, DynamicImage};
 use gif::{Frame, Encoder, Repeat, SetParameter};
 use color_quant::NeuQuant;
 use lab::Lab;
 use rayon::prelude::*;
+use fnv::FnvHashMap;
 
 #[cfg(feature = "debug-stderr")] #[macro_use] mod macros;
 
@@ -315,7 +317,7 @@ fn neuquant_palettize(imgs: &[Image], sample_rate: u32, width: u32, height: u32)
 
     #[cfg(feature = "debug-stderr")] let time_map = Instant::now();
     let mut transparency = None;
-    let mut cache: HashMap<[u8; 4], u8> = HashMap::new();
+    let mut cache: FnvHashMap<[u8; 4], u8> = FnvHashMap::default();
     let palettized_imgs: Vec<Vec<u8>> = imgs.iter().map(|img| {
         img.inner.pixels().map(|(_, _, px)| {
             *cache.entry(px.data).or_insert_with(|| {
@@ -333,15 +335,15 @@ fn neuquant_palettize(imgs: &[Image], sample_rate: u32, width: u32, height: u32)
 
 fn naive_palettize(imgs: &[Image]) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
     #[cfg(feature = "debug-stderr")] let time_count = Instant::now();
-    let frequencies: HashMap<u32, usize> = imgs.par_iter().map(|img| {
-        let mut fr: HashMap<u32, usize> = HashMap::new();
+    let frequencies: FnvHashMap<u32, usize> = imgs.par_iter().map(|img| {
+        let mut fr: FnvHashMap<u32, usize> = FnvHashMap::default();
         for (_, _, pixel) in img.inner.pixels() {
             let i: u32 = unsafe { std::mem::transmute(pixel.data) };
             let num = fr.entry(i).or_insert(0);
             *num += 1;
         }
         fr
-    }).reduce(|| HashMap::new(), |mut acc, fr| {
+    }).reduce(|| FnvHashMap::default(), |mut acc, fr| {
         for (color, count) in fr {
             let num = acc.entry(color).or_insert(0);
             *num += count;
@@ -367,7 +369,7 @@ fn naive_palettize(imgs: &[Image]) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
         (&sorted[..], &[] as &[_])
     };
 
-    let mut map: HashMap<u32, u8> = HashMap::new();
+    let mut map: FnvHashMap<u32, u8> = FnvHashMap::default();
     for (i, color) in palette.iter().enumerate() {
         map.insert(color.0, i as u8);
     }
