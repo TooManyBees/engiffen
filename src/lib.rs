@@ -35,6 +35,8 @@ fn ms(duration: Instant) -> u64 {
     duration.as_secs() * 1000 + duration.subsec_nanos() as u64 / 1000000
 }
 
+type RGBA = [u8; 4];
+
 /// A color quantizing strategy.
 ///
 /// `Naive` calculates color frequencies, picks the 256 most frequent colors
@@ -317,7 +319,7 @@ fn neuquant_palettize(imgs: &[Image], sample_rate: u32, width: u32, height: u32)
 
     #[cfg(feature = "debug-stderr")] let time_map = Instant::now();
     let mut transparency = None;
-    let mut cache: FnvHashMap<[u8; 4], u8> = FnvHashMap::default();
+    let mut cache: FnvHashMap<RGBA, u8> = FnvHashMap::default();
     let palettized_imgs: Vec<Vec<u8>> = imgs.iter().map(|img| {
         img.inner.pixels().map(|(_, _, px)| {
             *cache.entry(px.data).or_insert_with(|| {
@@ -335,11 +337,10 @@ fn neuquant_palettize(imgs: &[Image], sample_rate: u32, width: u32, height: u32)
 
 fn naive_palettize(imgs: &[Image]) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
     #[cfg(feature = "debug-stderr")] let time_count = Instant::now();
-    let frequencies: FnvHashMap<u32, usize> = imgs.par_iter().map(|img| {
-        let mut fr: FnvHashMap<u32, usize> = FnvHashMap::default();
+    let frequencies: FnvHashMap<RGBA, usize> = imgs.par_iter().map(|img| {
+        let mut fr: FnvHashMap<RGBA, usize> = FnvHashMap::default();
         for (_, _, pixel) in img.inner.pixels() {
-            let i: u32 = unsafe { std::mem::transmute(pixel.data) };
-            let num = fr.entry(i).or_insert(0);
+            let num = fr.entry(pixel.data).or_insert(0);
             *num += 1;
         }
         fr
@@ -357,8 +358,7 @@ fn naive_palettize(imgs: &[Image]) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
         .collect::<Vec<_>>();
     sorted_frequencies.sort_by(|a, b| b.1.cmp(&a.1));
     let sorted = sorted_frequencies.into_iter().map(|c| {
-        let arr: [u8; 4] = unsafe { std::mem::transmute(c.0) };
-        (c.0, Lab::from_rgba(&arr))
+        (c.0, Lab::from_rgba(&c.0))
     }).collect::<Vec<_>>();
     #[cfg(feature = "debug-stderr")]
     printerr!("Computed Lab values of colors in {} ms", ms(time_lab));
@@ -369,7 +369,7 @@ fn naive_palettize(imgs: &[Image]) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
         (&sorted[..], &[] as &[_])
     };
 
-    let mut map: FnvHashMap<u32, u8> = FnvHashMap::default();
+    let mut map: FnvHashMap<RGBA, u8> = FnvHashMap::default();
     for (i, color) in palette.iter().enumerate() {
         map.insert(color.0, i as u8);
     }
@@ -393,8 +393,7 @@ fn naive_palettize(imgs: &[Image]) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
     #[cfg(feature = "debug-stderr")]let time_index = Instant::now();
     let palettized_imgs: Vec<Vec<u8>> = imgs.par_iter().map(|img| {
         img.inner.pixels().map(|(_, _, px)| {
-            let i: u32 = unsafe { std::mem::transmute(px.data) };
-            *map.get(&i).expect("A color in an image was not added to the palette map.")
+            *map.get(&px.data).expect("A color in an image was not added to the palette map.")
         }).collect()
     }).collect();
     #[cfg(feature = "debug-stderr")]
@@ -402,8 +401,7 @@ fn naive_palettize(imgs: &[Image]) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
 
     let mut palette_as_bytes = Vec::with_capacity(palette.len() * 3);
     for color in palette {
-        let arr: [u8; 4] = unsafe { std::mem::transmute(color.0) };
-        palette_as_bytes.extend_from_slice(&arr[0..3]);
+        palette_as_bytes.extend_from_slice(&color.0[0..3]);
     }
 
     (palette_as_bytes, palettized_imgs, None)
