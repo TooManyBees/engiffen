@@ -254,6 +254,8 @@ pub fn engiffen(imgs: &[Image], fps: usize, quantizer: Quantizer) -> Result<Gif,
     if imgs.is_empty() {
         return Err(Error::NoImages);
     }
+    #[cfg(feature = "debug-stderr")] printerr!("Engiffening {} images", imgs.len());
+
     let (width, height) = {
         let ref first = imgs[0].inner;
         let first_dimensions = (first.width(), first.height());
@@ -355,15 +357,13 @@ fn naive_palettize(imgs: &[Image]) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
     });
     #[cfg(feature = "debug-stderr")]
     printerr!("Naive: Counted color frequencies in {} ms", ms(time_count));
-    #[cfg(feature = "debug-stderr")] let time_lab = Instant::now();
+    #[cfg(feature = "debug-stderr")] let time_palette = Instant::now();
     let mut sorted_frequencies = frequencies.into_iter()
         .collect::<Vec<_>>();
     sorted_frequencies.sort_by(|a, b| b.1.cmp(&a.1));
     let sorted = sorted_frequencies.into_iter().map(|c| {
         (c.0, Lab::from_rgba(&c.0))
     }).collect::<Vec<_>>();
-    #[cfg(feature = "debug-stderr")]
-    printerr!("Naive: Computed Lab values of colors in {} ms", ms(time_lab));
 
     let (palette, rest) = if sorted.len() > 256 {
         (&sorted[..256], &sorted[256..])
@@ -375,7 +375,6 @@ fn naive_palettize(imgs: &[Image]) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
     for (i, color) in palette.iter().enumerate() {
         map.insert(color.0, i as u8);
     }
-    #[cfg(feature = "debug-stderr")] let time_assign = Instant::now();
     for color in rest {
         let closest_index = palette.iter().enumerate().fold((0, f32::INFINITY), |closest, (idx, p)| {
             let dist = p.1.squared_distance(&color.1);
@@ -390,7 +389,7 @@ fn naive_palettize(imgs: &[Image]) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
         map.insert(color.0, index);
     }
     #[cfg(feature = "debug-stderr")]
-    printerr!("Naive: Assigned palette indices to the rest of the colors in {} ms.", ms(time_assign));
+    printerr!("Naive: Computed palette in {} ms.", ms(time_palette));
 
     #[cfg(feature = "debug-stderr")]let time_index = Instant::now();
     let palettized_imgs: Vec<Vec<u8>> = imgs.par_iter().map(|img| {
