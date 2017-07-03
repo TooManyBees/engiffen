@@ -310,7 +310,7 @@ fn neuquant_palettize(imgs: &[Image], sample_rate: u32, width: u32, height: u32)
         acc
     });
     #[cfg(feature = "debug-stderr")]
-    printerr!("Neuquant: Concatenated all pixels in {} ms.", ms(time_push));
+    printerr!("Neuquant: Concatenated {} bytes in {} ms.", colors.len(), ms(time_push));
 
     #[cfg(feature = "debug-stderr")] let time_quant = Instant::now();
     let quant = NeuQuant::new(10, 256, &colors);
