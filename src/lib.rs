@@ -3,7 +3,7 @@
 //! This library is a wrapper around the image and gif crates to convert
 //! a sequence of images into an animated Gif.
 
-#![doc(html_root_url = "https://docs.rs/engiffen/0.6.0")]
+#![doc(html_root_url = "https://docs.rs/engiffen/0.8.0")]
 
 extern crate image;
 extern crate gif;
@@ -16,9 +16,8 @@ use std::io;
 #[cfg(feature = "debug-stderr")] use std::io::Write;
 use std::{error, fmt, f32};
 use std::borrow::Cow;
-// use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-use image::{GenericImage, DynamicImage};
+use std::path::Path;
+use image::GenericImage;
 use gif::{Frame, Encoder, Repeat, SetParameter};
 use color_quant::NeuQuant;
 use lab::Lab;
@@ -71,13 +70,14 @@ pub enum Quantizer {
 /// disk through the `load_image` or `load_images` functions, its path property
 /// contains the path used to read it from disk.
 pub struct Image {
-    inner: DynamicImage,
-    pub path: Option<PathBuf>,
+    pixels: Vec<RGBA>,
+    width: u32,
+    height: u32,
 }
 
 impl fmt::Debug for Image {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Image {{ path: {:?}, dimensions: {} x {} }}", self.path, self.inner.width(), self.inner.height())
+        write!(f, "Image {{ dimensions: {} x {} }}", self.width, self.height)
     }
 }
 
@@ -192,7 +192,6 @@ impl Gif {
 /// # use std::path::PathBuf;
 /// # fn foo() -> Result<Image, Error> {
 /// let image = load_image("test/ball/ball01.bmp")?;
-/// assert_eq!(image.path, Some(PathBuf::from("test/ball/ball01.bmp")));
 /// # Ok(image)
 /// # }
 /// ```
@@ -203,9 +202,14 @@ impl Gif {
 pub fn load_image<P>(path: P) -> Result<Image, Error>
     where P: AsRef<Path> {
     let img = image::open(&path)?;
+    let mut pixels: Vec<RGBA> = Vec::with_capacity(0);
+    for (_, _, px) in img.pixels() {
+        pixels.push(px.data);
+    }
     Ok(Image {
-        inner: img,
-        path: Some(path.as_ref().to_path_buf()),
+        pixels: pixels,
+        width: img.width(),
+        height: img.height(),
     })
 }
 
@@ -257,10 +261,10 @@ pub fn engiffen(imgs: &[Image], fps: usize, quantizer: Quantizer) -> Result<Gif,
     #[cfg(feature = "debug-stderr")] printerr!("Engiffening {} images", imgs.len());
 
     let (width, height) = {
-        let ref first = imgs[0].inner;
-        let first_dimensions = (first.width(), first.height());
+        let ref first = imgs[0];
+        let first_dimensions = (first.width, first.height);
         for img in imgs.iter() {
-            let other_dimensions = (img.inner.width(), img.inner.height());
+            let other_dimensions = (img.width, img.height);
             if first_dimensions != other_dimensions {
                 return Err(Error::Mismatch(first_dimensions, other_dimensions));
             }
@@ -287,20 +291,22 @@ pub fn engiffen(imgs: &[Image], fps: usize, quantizer: Quantizer) -> Result<Gif,
 
 fn neuquant_palettize(imgs: &[Image], sample_rate: u32, width: u32, height: u32) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
     let image_len = (width * height * 4 / sample_rate / sample_rate) as usize;
+    let width = width as usize;
+    let sample_rate = sample_rate as usize;
     let transparent_black = [0u8; 4];
     #[cfg(feature = "debug-stderr")] let time_push = Instant::now();
     let colors: Vec<u8> = imgs.par_iter().map(|img| {
         let mut temp: Vec<_> = Vec::with_capacity(image_len);
-        for (x, y, px) in img.inner.pixels() {
+        for (n, px) in img.pixels.iter().enumerate() {
             if sample_rate > 1 {
-                if x % sample_rate != 0 || y % sample_rate != 0 {
+                if n % sample_rate != 0 || (n / width) % sample_rate != 0 {
                     continue;
                 }
             }
-            if px.data[3] == 0 {
+            if px[3] == 0 {
                 temp.extend_from_slice(&transparent_black);
             } else {
-                temp.extend_from_slice(&px.data[..3]);
+                temp.extend_from_slice(&px[..3]);
                 temp.push(255);
             }
         }
@@ -321,10 +327,12 @@ fn neuquant_palettize(imgs: &[Image], sample_rate: u32, width: u32, height: u32)
     let mut transparency = None;
     let mut cache: FnvHashMap<RGBA, u8> = FnvHashMap::default();
     let palettized_imgs: Vec<Vec<u8>> = imgs.iter().map(|img| {
-        img.inner.pixels().map(|(_, _, px)| {
-            *cache.entry(px.data).or_insert_with(|| {
-                let idx = quant.index_of(&px.data) as u8;
-                if px.data[3] == 0 { transparency = Some(idx); }
+        img.pixels.iter().map(|px| {
+            *cache.entry(*px).or_insert_with(|| {
+                let idx = quant.index_of(px) as u8;
+                if transparency.is_none() && px[3] == 0 {
+                    transparency = Some(idx);
+                }
                 idx
             })
         }).collect()
@@ -339,8 +347,8 @@ fn naive_palettize(imgs: &[Image]) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
     #[cfg(feature = "debug-stderr")] let time_count = Instant::now();
     let frequencies: FnvHashMap<RGBA, usize> = imgs.par_iter().map(|img| {
         let mut fr: FnvHashMap<RGBA, usize> = FnvHashMap::default();
-        for (_, _, pixel) in img.inner.pixels() {
-            let num = fr.entry(pixel.data).or_insert(0);
+        for pixel in img.pixels.iter() {
+            let num = fr.entry(*pixel).or_insert(0);
             *num += 1;
         }
         fr
@@ -389,8 +397,8 @@ fn naive_palettize(imgs: &[Image]) -> (Vec<u8>, Vec<Vec<u8>>, Option<u8>) {
 
     #[cfg(feature = "debug-stderr")]let time_index = Instant::now();
     let palettized_imgs: Vec<Vec<u8>> = imgs.par_iter().map(|img| {
-        img.inner.pixels().map(|(_, _, px)| {
-            *map.get(&px.data).expect("A color in an image was not added to the palette map.")
+        img.pixels.iter().map(|px| {
+            *map.get(px).expect("A color in an image was not added to the palette map.")
         }).collect()
     }).collect();
     #[cfg(feature = "debug-stderr")]
