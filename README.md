@@ -53,7 +53,7 @@ let images = load_images(&paths);
 let mut output = File::create("output.gif")?;
 
 // encode an animated gif at 10 frames per second
-let gif = engiffen(&images, 10, Quantizer::NeuQuant(2))?;
+let gif = engiffen(&images, 10, Quantizer::Naive)?;
 gif.write(&mut output);
 ```
 
@@ -62,7 +62,7 @@ gif.write(&mut output);
 // when computing the gif's palette. This value reduces the amount of
 // sampling work to 1/9th of what it normally would, by only sampling
 // every 3rd pixel on every 3rd row (i.e. pixels lying on a 3x3 grid).
-let gif = engiffen(&images, 10, Some(3));
+let gif = engiffen(&images, 10, Quantizer::NeuQuant(3));
 ```
 
 # debug output
