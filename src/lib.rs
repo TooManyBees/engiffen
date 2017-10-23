@@ -3,7 +3,7 @@
 //! This library is a wrapper around the image and gif crates to convert
 //! a sequence of images into an animated Gif.
 
-#![doc(html_root_url = "https://docs.rs/engiffen/0.8.0")]
+#![doc(html_root_url = "https://docs.rs/engiffen/0.8.1")]
 
 extern crate image;
 extern crate gif;
@@ -70,9 +70,9 @@ pub enum Quantizer {
 /// disk through the `load_image` or `load_images` functions, its path property
 /// contains the path used to read it from disk.
 pub struct Image {
-    pixels: Vec<RGBA>,
-    width: u32,
-    height: u32,
+    pub pixels: Vec<RGBA>,
+    pub width: u32,
+    pub height: u32,
 }
 
 impl fmt::Debug for Image {
