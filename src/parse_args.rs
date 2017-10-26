@@ -5,7 +5,6 @@ use getopts::Options;
 use std::path::{Path, PathBuf};
 use std::{error, fmt};
 use std::str::FromStr;
-use std::io::Write;
 use std;
 
 use self::SourceImages::*;
@@ -138,7 +137,7 @@ pub fn parse_args(args: &[String]) -> Result<Args, ArgsError> {
         match opt_str.as_str() {
             "reverse" | "rev" => modifiers.push(Modifier::Reverse),
             "shuffle" => modifiers.push(Modifier::Shuffle),
-            m @ _ => printerr!("Ignoring unknown modifier `{}`", m),
+            m @ _ => eprintln!("Ignoring unknown modifier `{}`", m),
         }
     }
 

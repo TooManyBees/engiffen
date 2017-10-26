@@ -4,7 +4,7 @@ extern crate getopts;
 extern crate rand;
 #[cfg(feature = "globbing")] extern crate glob;
 
-use std::io::{self, Write, BufWriter};
+use std::io::{self, BufWriter};
 use std::{env, fmt, process};
 use std::fs::{read_dir, File};
 use std::path::PathBuf;
@@ -16,7 +16,6 @@ use parse_args::{parse_args, Args, SourceImages, Modifier};
 use rand::distributions::exponential::Exp1;
 use rand::distributions::{IndependentSample, Range};
 
-#[macro_use] mod macros;
 mod parse_args;
 
 #[derive(Debug)]
@@ -69,7 +68,7 @@ fn run_engiffen(args: &Args) -> Result<((Option<String>, Duration)), RuntimeErro
                 .filter_map(std::result::Result::ok)
                 .collect();
             #[cfg(feature = "debug-stderr")]
-            printerr!("Expanded {} into {} files.", string, paths.len());
+            eprintln!("Expanded {} into {} files.", string, paths.len());
             paths
         },
     };
@@ -101,7 +100,7 @@ fn run_engiffen(args: &Args) -> Result<((Option<String>, Duration)), RuntimeErro
 fn main() {
     let arg_strings: Vec<String> = env::args().collect();
     let args = parse_args(&arg_strings).map_err(|e| {
-        printerr!("{}", e);
+        eprintln!("{}", e);
         process::exit(1);
     }).unwrap();
 
@@ -109,10 +108,10 @@ fn main() {
         Ok((file, duration)) => {
             let ms = duration.as_secs() * 1000 + duration.subsec_nanos() as u64 / 1000000;
             let filename = file.unwrap_or("to stdout".to_owned());
-            printerr!("Wrote {} in {} ms", filename, ms);
+            eprintln!("Wrote {} in {} ms", filename, ms);
         },
         Err(e) => {
-            printerr!("{}", e);
+            eprintln!("{}", e);
             process::exit(1);
         },
     }
