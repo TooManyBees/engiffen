@@ -15,6 +15,7 @@ use parse_args::{parse_args, Args, SourceImages, Modifier};
 
 use rand::distributions::exponential::Exp1;
 use rand::distributions::{IndependentSample, Range};
+use rand::Rng;
 
 mod parse_args;
 
@@ -142,7 +143,7 @@ fn shuffle<T>(src: &mut [T]) {
 
     for n in 1..(src.len()) {
         let i = src.len() - n;
-        let Exp1(e) = rand::random();
+        let Exp1(e) = rng.gen();
         let frame_weight = i as f64 / lenf;
         if e * frame_weight > 0.5 {
             let range = Range::new(max(i - i/2, 0), min(src.len() - 1, i + i/2));
