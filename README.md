@@ -95,6 +95,12 @@ cargo test --release -- --ignored
 
   Accept a stream of frames from a server to process individually as they arrive. Put off sorting the final palette and compiling the gif until finished.
 
+## Contributing & Contact
+
+Github doesn't like to alert me to notifications, so hit me up on Twitter [@toomanybees](https://twitter.com/toomanybees) for a quicker response.
+
+PRs and Issues are always welcome.
+
 ## Anything else?
 
 ![shrug](tests/shrug.gif)
