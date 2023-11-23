@@ -1,6 +1,6 @@
 [package]
 name = "engiffen"
-version = "0.8.1"
+version = "0.8.2"
 authors = ["Jesse Bees <jesse@toomanybees.com>"]
 description = """
 Encodes GIF images from sequences of images. Includes an installable
@@ -24,13 +24,13 @@ debug-stderr = []
 globbing = ["glob"]
 
 [dependencies]
-lab = "~0.4"
-image = "~0.13"
+lab = "~0.8"
+image = "~0.19"
 gif = "~0.9"
-color_quant = "1.1.0"
-getopts = "0.2.14"
-rayon = "~0.7"
-rand = "~0.3"
+color_quant = "~1.1"
+getopts = "0.2.21"
+rayon = "~1.8"
+rand = "~0.4"
 fnv = "~1.0"
 glob = { version = "~0.2", optional = true }
 
