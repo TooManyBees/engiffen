@@ -83,7 +83,7 @@ impl error::Error for ArgsError {
         }
     }
 
-    fn cause(&self) -> Option<&error::Error> {
+fn cause(&self) -> Option<&dyn error::Error> {
         match *self {
             ArgsError::Parse(ref err) => Some(err),
             ArgsError::ParseInt(ref err) => Some(err),

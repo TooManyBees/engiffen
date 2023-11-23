@@ -42,7 +42,7 @@ impl fmt::Display for RuntimeError {
     }
 }
 
-fn run_engiffen(args: &Args) -> Result<((Option<String>, Duration)), RuntimeError> {
+fn run_engiffen(args: &Args) -> Result<(Option<String>, Duration), RuntimeError> {
     let mut source_images: Vec<_> = match args.source {
         SourceImages::StartEnd(ref dir, ref start_path, ref end_path) => {
             let start_string = start_path.as_os_str();
